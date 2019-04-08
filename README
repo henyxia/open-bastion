@@ -3,10 +3,60 @@ Open Bastion
 
 Open Bastion is an open project of bastion. Its aim is to be the single
 entrypoint of all infrastructure servers. For more general information about
-bastion, see the [Wiki's article](https://en.wikipedia.org/wiki/Bastion_host).
+bastion, see the Wiki's article: https://en.wikipedia.org/wiki/Bastion_host .
 
 License
 -------
 
 The main goal of this project is to be reusable and auditable. Therefore, it
 comes with a GNU GPL v3 license.
+
+Design
+------
+
+The bastion is designed to be as modular as possible. Each block belongs to a
+particular category. The order represents in which order the blocks will be
+executed. The role describe if the block is directly helping the client to
+connect (connection) or is helping the other blocks (helper).
+
+| category       | order | role       | example       |
+|----------------|-------|------------|---------------|
+| ingress        | 1     | connection | ssh           |
+| authentication | 2     | connection | any SSO       |
+| authorization  | 3     | connection | ldap          |
+| accounting     | 4     | connection | syslog/ttyrec |
+| egress         | 5     | connection | ssh/telnet    |
+| secret         | n/a   | helper     | vault         |
+
+As blocks should be independent, all must validate the existence and validity of
+previous blocks. They also must sanitize the variable accordingly to their usage
+and pass them to the next block.
+
+Block: ingress
+--------------
+
+The purpose of this block is to define some environment variable.
+
+| name           | example     | description                      |
+|----------------+-------------+----------------------------------+
+| OB_UID         | my_user     | ingress user (id, username, ...) |
+| OB_TARGET_HOST | root@myhost | host target                      |
+| OB_TARGET_PORT | 22          | port target                      |
+
+Block: authentication
+---------------------
+
+This is dependent of the previous ingress one. It can be integrated in the
+ingress block (like in ssh with authorized_keys) or can be a separated part
+(like a unique url to validate with an external SSO). Either way, on success,
+an environment variable will be set.
+
+| name           | example | description                |
+|----------------+---------+----------------------------+
+| OB_AUTH_METHOD | my_sso  | authentication method used |
+
+Block: authorization
+--------------------
+
+With the previous variable being set, the access request to the target can be
+evaluated. A simple return 
