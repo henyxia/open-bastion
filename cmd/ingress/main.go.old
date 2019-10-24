@@ -1,74 +1,42 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
+	//"github.com/open-bastion/open-bastion/internal/config"
 	"golang.org/x/crypto/ssh"
-	"io"
+	"golang.org/x/crypto/ssh/terminal"
 	"io/ioutil"
 	"log"
 	"net"
 	"os"
+	//"os/signal"
 )
 
-// Get default location of a private key
-func privateKeyPath() string {
-	return os.Getenv("HOME") + "/.ssh/id_rsa"
-}
-
-// Get private key for ssh authentication
-func parsePrivateKey(keyPath string) (ssh.Signer, error) {
-	buff, _ := ioutil.ReadFile(keyPath)
-	return ssh.ParsePrivateKey(buff)
-}
-
-// Get ssh client config for our connection
-// SSH config will use 2 authentication strategies: by key and by password
-func makeSshConfig(user, password string) (*ssh.ClientConfig, error) {
-	key, err := parsePrivateKey(privateKeyPath())
-	if err != nil {
-		return nil, err
-	}
-
-	config := ssh.ClientConfig{
-		User: user,
-		Auth: []ssh.AuthMethod{
-			ssh.PublicKeys(key),
-			ssh.Password(password),
-		},
-	}
-
-	return &config, nil
-}
-
-// Handle local client connections and tunnel data to the remote serverq
-// Will use io.Copy - http://golang.org/pkg/io/#Copy
-func handleClient(client net.Conn, remote net.Conn) {
-	defer client.Close()
-	chDone := make(chan bool)
-
-	// Start remote -> local data transfer
-	go func() {
-		_, err := io.Copy(client, remote)
-		if err != nil {
-			log.Println("error while copy remote->local:", err)
-		}
-		chDone <- true
-	}()
-
-	// Start local -> remote data transfer
-	go func() {
-		_, err := io.Copy(remote, client)
-		if err != nil {
-			log.Println(err)
-		}
-		chDone <- true
-	}()
-
-	<-chDone
-}
-
 func main() {
-	// Build SSH client configuration
+	//args := os.Args
+
+	// serverConfig := new(config.Config)
+	// serverConfig.ParseConfig(args[1])
+
+	// Public key authentication is done by comparing
+	// the public key of a received connection
+	// with the entries in the authorized_keys file.
+	// authorizedKeysBytes, err := ioutil.ReadFile("~/.ssh/authorized_keys")
+	// if err != nil {
+	// 	log.Fatalf("Failed to load authorized_keys, err: %v", err)
+	// }
+
+	// authorizedKeysMap := map[string]bool{}
+	// for len(authorizedKeysBytes) > 0 {
+	// 	pubKey, _, _, rest, err := ssh.ParseAuthorizedKey(authorizedKeysBytes)
+	// 	if err != nil {
+	// 		log.Fatal(err)
+	// 	}
+
+	// 	authorizedKeysMap[string(pubKey.Marshal())] = true
+	// 	authorizedKeysBytes = rest
+	// }
 	authorizedKeysMap := map[string]bool{}
 
 	pubKey, _, _, _, err := ssh.ParseAuthorizedKey([]byte("ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCvDoxgUqn0SB0+X6uDY9wbOTnFqmkmd2AITpA8GWHHT4uRVnKiMbcifEy1HrpRJkX4ziDFMXpLQgBIQr9eKnCcCL5qmfOCL7G3X21MvX2LECf8SGF59QarNvjVznLM7bhKuZ8ixmo1BShLrIyFqI2HBGNVVvP800kS3l1CezEMBsLzDv+G/aLN52ZfAh3WZmrqdE8pKcByVWbFA5nnHcsulqESBiAO7ThESTP/H6/5pPnXz+eESXzkEwMYVBE6wJgZ64O1uXIdmb19YfuQUMy1bvzKZuDm5rLIgtlgaTrCmh/5UgIVEXzCeLUSgzcNAFPS5fhgqzZjDrjGvjl2nCwJ alex@localhost.localdomain"))
@@ -106,26 +74,24 @@ func main() {
 
 	config.AddHostKey(private)
 
-	//Listen for incoming SSH conn
-
 	// Once a ServerConfig has been configured, connections can be
 	// accepted.
 	listener, err := net.Listen("tcp", "0.0.0.0:2022")
 	if err != nil {
 		log.Fatal("failed to listen for connection: ", err)
 	}
-	client, err := listener.Accept()
+	nConn, err := listener.Accept()
 	if err != nil {
 		log.Fatal("failed to accept incoming connection: ", err)
 	}
 
 	// Before use, a handshake must be performed on the incoming
 	// net.Conn.
-	hsConn, chans, reqs, err := ssh.NewServerConn(client, config)
+	conn, chans, reqs, err := ssh.NewServerConn(nConn, config)
 	if err != nil {
 		log.Fatal("failed to handshake: ", err)
 	}
-	log.Printf("logged in with key %s", hsConn.Permissions.Extensions["pubkey-fp"])
+	log.Printf("logged in with key %s", conn.Permissions.Extensions["pubkey-fp"])
 
 	// The incoming Request channel must be serviced.
 	go ssh.DiscardRequests(reqs)
@@ -146,14 +112,26 @@ func main() {
 			log.Fatalf("Could not accept channel: %v", err)
 		}
 
-		//Need to copy channel io to the new con
+		term := terminal.NewTerminal(channel, "open-bastion> ")
 
-		dialSSH(channel)
+		go func() {
+			defer channel.Close()
+			for {
+				line, err := term.ReadLine()
+				if err != nil {
+					break
+				}
+				fmt.Println(line)
+			}
+		}()
+
+		//dialssh(term)
 
 	}
 }
 
-func dialSSH(channel ssh.Channel) {
+func dialssh(term *terminal.Terminal) {
+
 	server := "127.0.0.1"
 	port := "22"
 
@@ -171,28 +149,19 @@ func dialSSH(channel ssh.Channel) {
 		},
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 	}
-	sshConn, err := ssh.Dial("tcp", server, config)
+	conn, err := ssh.Dial("tcp", server, config)
 	if err != nil {
 		panic("Failed to dial: " + err.Error())
 	}
-	defer sshConn.Close()
+	defer conn.Close()
 
 	// Each ClientConn can support multiple interactive sessions,
 	// represented by a Session.
-	session, err := sshConn.NewSession()
+	session, err := conn.NewSession()
 	if err != nil {
 		panic("Failed to create session: " + err.Error())
 	}
 	defer session.Close()
-
-	// Try to connect channel output to session input
-	go func() {
-		b := make([]byte, 2048)
-		p, err := session.StdinPipe()
-		for {
-			channel.Read(b)
-		}
-	}()
 
 	// Set IO
 	session.Stdout = os.Stdout
@@ -215,4 +184,12 @@ func dialSSH(channel ssh.Channel) {
 	if err := session.Shell(); err != nil {
 		log.Fatalf("failed to start shell: %s", err)
 	}
+
+	// Accepting commands
+	for {
+		reader := bufio.NewReader(os.Stdin)
+		str, _ := reader.ReadString('\n')
+		fmt.Fprint(in, str)
+	}
+
 }
