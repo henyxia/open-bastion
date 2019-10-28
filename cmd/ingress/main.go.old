@@ -1,6 +1,7 @@
 package main
 
 import (
+<<<<<<< HEAD:cmd/ingress/main.go.old
 	"bufio"
 	"fmt"
 	//"github.com/open-bastion/open-bastion/internal/config"
@@ -38,30 +39,26 @@ func main() {
 	// 	authorizedKeysBytes = rest
 	// }
 	authorizedKeysMap := map[string]bool{}
+=======
+	"github.com/open-bastion/open-bastion/internal/auth"
+	"github.com/open-bastion/open-bastion/internal/config"
+	"github.com/open-bastion/open-bastion/internal/egress"
+	"github.com/open-bastion/open-bastion/internal/ingress"
+	"golang.org/x/crypto/ssh"
+	"log"
+	"net"
+	"strconv"
+)
 
-	pubKey, _, _, _, err := ssh.ParseAuthorizedKey([]byte("ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCvDoxgUqn0SB0+X6uDY9wbOTnFqmkmd2AITpA8GWHHT4uRVnKiMbcifEy1HrpRJkX4ziDFMXpLQgBIQr9eKnCcCL5qmfOCL7G3X21MvX2LECf8SGF59QarNvjVznLM7bhKuZ8ixmo1BShLrIyFqI2HBGNVVvP800kS3l1CezEMBsLzDv+G/aLN52ZfAh3WZmrqdE8pKcByVWbFA5nnHcsulqESBiAO7ThESTP/H6/5pPnXz+eESXzkEwMYVBE6wJgZ64O1uXIdmb19YfuQUMy1bvzKZuDm5rLIgtlgaTrCmh/5UgIVEXzCeLUSgzcNAFPS5fhgqzZjDrjGvjl2nCwJ alex@localhost.localdomain"))
-	if err != nil {
-		log.Fatal(err)
-	}
+func main() {
+	var sshServer ingress.Ingress
+	var auth auth.Auth
+	var config config.Config
+>>>>>>> 97a0549... Crated first proto with project structure.:cmd/open-bastion/main.go
 
-	authorizedKeysMap[string(pubKey.Marshal())] = true
+	config.ParseConfig("/home/alex/Documents/open-bastion/configs/open-bastion-conf.json")
 
-	// An SSH server is represented by a ServerConfig, which holds
-	// certificate details and handles authentication of ServerConns.
-	config := &ssh.ServerConfig{
-		PublicKeyCallback: func(c ssh.ConnMetadata, pubKey ssh.PublicKey) (*ssh.Permissions, error) {
-			if authorizedKeysMap[string(pubKey.Marshal())] {
-				return &ssh.Permissions{
-					// Record the public key used for authentication.
-					Extensions: map[string]string{
-						"pubkey-fp": ssh.FingerprintSHA256(pubKey),
-					},
-				}, nil
-			}
-			return nil, fmt.Errorf("unknown public key for %q", c.User())
-		},
-	}
-
+<<<<<<< HEAD:cmd/ingress/main.go.old
 	privateBytes, err := ioutil.ReadFile("/home/alex/Documents/open-bastion/user.key")
 	if err != nil {
 		log.Fatal("Failed to load private key: ", err)
@@ -71,12 +68,20 @@ func main() {
 	if err != nil {
 		log.Fatal("Failed to parse private key: ", err)
 	}
+=======
+	auth.ReadAuthorizedKeysFile(config.AuthorizedKeysFile)
+>>>>>>> 97a0549... Crated first proto with project structure.:cmd/open-bastion/main.go
 
-	config.AddHostKey(private)
+	sshServer.ConfigSSHServer(auth.AuthorizedKeys, "/home/alex/Documents/open-bastion/bastion.key")
 
 	// Once a ServerConfig has been configured, connections can be
 	// accepted.
+<<<<<<< HEAD:cmd/ingress/main.go.old
 	listener, err := net.Listen("tcp", "0.0.0.0:2022")
+=======
+	log.Println("listen for incoming connections")
+	listener, err := net.Listen("tcp", config.ListenAddress+":"+strconv.Itoa(config.ListenPort))
+>>>>>>> 97a0549... Crated first proto with project structure.:cmd/open-bastion/main.go
 	if err != nil {
 		log.Fatal("failed to listen for connection: ", err)
 	}
@@ -87,7 +92,11 @@ func main() {
 
 	// Before use, a handshake must be performed on the incoming
 	// net.Conn.
+<<<<<<< HEAD:cmd/ingress/main.go.old
 	conn, chans, reqs, err := ssh.NewServerConn(nConn, config)
+=======
+	hsConn, chans, reqs, err := ssh.NewServerConn(client, sshServer.SSHServerConfig)
+>>>>>>> 97a0549... Crated first proto with project structure.:cmd/open-bastion/main.go
 	if err != nil {
 		log.Fatal("failed to handshake: ", err)
 	}
@@ -112,6 +121,7 @@ func main() {
 			log.Fatalf("Could not accept channel: %v", err)
 		}
 
+<<<<<<< HEAD:cmd/ingress/main.go.old
 		term := terminal.NewTerminal(channel, "open-bastion> ")
 
 		go func() {
@@ -192,4 +202,9 @@ func dialssh(term *terminal.Terminal) {
 		fmt.Fprint(in, str)
 	}
 
+=======
+		// jump to new connection
+		egress.DialSSH(channel, "alex", "127.0.0.1", 22)
+	}
+>>>>>>> 97a0549... Crated first proto with project structure.:cmd/open-bastion/main.go
 }

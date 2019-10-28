@@ -7,7 +7,16 @@ import (
 )
 
 type Config struct {
+<<<<<<< HEAD
 	PermitPasswordLogin bool `json:"PermitPasswordLogin"`
+=======
+	PermitPasswordLogin bool   `json:"PermitPasswordLogin"`
+	PermitKeyLogin      bool   `json:"PermitKeyLogin"`
+	PermitRootLogin     bool   `json:"PermitRootLogin"`
+	AuthorizedKeysFile  string `json:"AuthorizedKeysFile"`
+	ListenPort          int    `json:"ListenPort"`
+	ListenAddress       string `json:"ListenAddress"`
+>>>>>>> 97a0549... Crated first proto with project structure.
 }
 
 func (c *Config) ParseConfig(path string) {
