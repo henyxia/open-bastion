@@ -1,10 +1,9 @@
 package ingress
 
 import (
-	"fmt"
+	"errors"
 	"golang.org/x/crypto/ssh"
 	"io/ioutil"
-	"log"
 	"net"
 )
 
@@ -14,8 +13,8 @@ type Ingress struct {
 	SSHServerConfig *ssh.ServerConfig
 }
 
-// ConfigSSHServer is used to configure the SSH server te bastion runs
-func (in *Ingress) ConfigSSHServer(ak map[string]bool, privateKeyPath string) {
+// ConfigSSHServer is used to configure the SSH server the bastion runs
+func (in *Ingress) ConfigSSHServer(ak map[string]bool, privateKeyPath string) error {
 	in.SSHServerConfig = &ssh.ServerConfig{
 		PublicKeyCallback: func(c ssh.ConnMetadata, pubKey ssh.PublicKey) (*ssh.Permissions, error) {
 			if ak[string(pubKey.Marshal())] {
@@ -26,20 +25,37 @@ func (in *Ingress) ConfigSSHServer(ak map[string]bool, privateKeyPath string) {
 					},
 				}, nil
 			}
-			return nil, fmt.Errorf("unknown public key for %q", c.User())
+			return nil, errors.New("Unknown public key for " + c.User())
 		},
 		PasswordCallback: nil,
+		MaxAuthTries:     3,
+		AuthLogCallback:  nil,
 	}
 
 	privateKeyBytes, err := ioutil.ReadFile(privateKeyPath)
 	if err != nil {
-		log.Fatal("Failed to load private key: ", err)
+		return errors.New("Failed to load private key : " + err.Error())
 	}
 
 	privateSigner, err := ssh.ParsePrivateKey(privateKeyBytes)
 	if err != nil {
-		log.Fatal("Failed to parse private key: ", err)
+		return errors.New("Failed to parse private key : " + err.Error())
 	}
 
 	in.SSHServerConfig.AddHostKey(privateSigner)
+
+	return nil
+}
+
+// ConfigTCPListener initializee TCPListener in the Ingress struct.
+func (in *Ingress) ConfigTCPListener(address string) error {
+	var err error
+
+	in.TCPListener, err = net.Listen("tcp", address)
+
+	if err != nil {
+		return errors.New("Failed to listen for connection : " + err.Error())
+	}
+
+	return nil
 }
