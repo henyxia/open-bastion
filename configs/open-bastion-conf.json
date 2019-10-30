@@ -1,0 +1,8 @@
+{
+    "PermitPasswordLogin": true,
+    "PermitKeyLogin": true,
+	"PermitRootLogin": false,
+	"AuthorizedKeysFile": "/home/alex/.ssh/authorized_keys",
+	"ListenPort": 2022,
+	"ListenAddress": "0.0.0.0"
+}
