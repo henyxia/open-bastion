@@ -14,6 +14,8 @@ type Ingress struct {
 	SSHServerConfig *ssh.ServerConfig
 }
 
+func 
+
 // ConfigSSHServer is used to configure the SSH server te bastion runs
 func (in *Ingress) ConfigSSHServer(ak map[string]bool, privateKeyPath string) {
 	in.SSHServerConfig = &ssh.ServerConfig{
