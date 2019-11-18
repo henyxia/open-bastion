@@ -1,0 +1,150 @@
+package config
+
+import (
+	"encoding/json"
+	"errors"
+	"io/ioutil"
+	"net"
+	"os"
+	"path/filepath"
+)
+
+// Config struct contains the server configuration
+type Config struct {
+	PermitPasswordLogin bool   `json:"PermitPasswordLogin"`
+	PermitKeyLogin      bool   `json:"PermitKeyLogin"`
+	PermitRootLogin     bool   `json:"PermitRootLogin"`
+	AuthorizedKeysFile  string `json:"AuthorizedKeysFile"`
+	PrivateKeyFile      string `json:"PrivateKeyFile"`
+	EventsLogFile       string `json:"EventsLogFile"`
+	SystemLogFile       string `json:"SystemLogFile"`
+	ListenPort          int    `json:"ListenPort"`
+	ListenAddress       string `json:"ListenAddress"`
+}
+
+// ParseConfig try to open and parse the file at the specified path.
+// If the path is invalid or empty, the function will try to find a config file
+// at the default locations.
+func (c *Config) ParseConfig(path string) error {
+	home, err := os.UserHomeDir()
+
+	if err != nil {
+		return err
+	}
+
+	// Default values if no configuration is provided for them
+	defaultConfigPaths := []string{
+		"/etc/open-bastion/open-bastion-conf.json",
+		home + "/.config/open-bastion/open-bastion-conf.json",
+		home + "/.config/open-bastion-conf.json",
+	}
+
+	defaultPrivateKey := home + "/.ssh/id_rsa"
+	defaultAuthorizedKeys := home + "/.ssh/authorized_keys"
+	defaultSSHPort := 22
+
+	//TODO better log location
+	defaultLogsDirectory, err := os.Executable()
+
+	if err != nil {
+		return err
+	}
+
+	defaultLogsDirectory = filepath.Dir(defaultLogsDirectory)
+
+	defaultEventsLogFile := defaultLogsDirectory + "/open-bastion-events.log"
+	defaultSystemLogFile := defaultLogsDirectory + "/open-bastion-system.log"
+
+	configPath := ""
+
+	if path != "" {
+		_, err := os.Stat(path)
+
+		if err != nil {
+			//TODO add log message
+		} else {
+			configPath = path
+		}
+	}
+
+	if configPath == "" {
+		for _, p := range defaultConfigPaths {
+			_, err := os.Stat(p)
+
+			if err == nil {
+				configPath = p
+				break
+			}
+		}
+	}
+
+	if configPath == "" {
+		return errors.New("Could not open any configuration file")
+	}
+
+	f, err := os.Open(configPath)
+
+	if err != nil {
+		return err
+	}
+
+	byteContent, err := ioutil.ReadAll(f)
+
+	f.Close()
+
+	if err != nil {
+		return err
+	}
+
+	if !json.Valid(byteContent) {
+		return errors.New("The configuration file is not a valid JSON file")
+	}
+
+	//By default, object keys which don't have a corresponding struct field are ignored
+	json.Unmarshal([]byte(byteContent), &c)
+
+	if c.PermitPasswordLogin == false && c.PermitKeyLogin == false {
+		return errors.New("No authorized login method")
+	}
+
+	if c.ListenPort == 0 {
+		c.ListenPort = defaultSSHPort
+	} else if c.ListenPort > 65535 || c.ListenPort < 0 {
+		return errors.New("Invalid port configuration")
+	}
+
+	if net.ParseIP(c.ListenAddress) == nil {
+		return errors.New("Invalid IP address configuration")
+	}
+
+	if c.PrivateKeyFile == "" {
+		c.PrivateKeyFile = defaultPrivateKey
+	} else {
+		_, err := os.Stat(c.PrivateKeyFile)
+
+		if err != nil {
+			return errors.New("Private key file : invalid path")
+		}
+	}
+
+	if c.AuthorizedKeysFile == "" {
+		c.AuthorizedKeysFile = defaultAuthorizedKeys
+	} else {
+		_, err := os.Stat(c.AuthorizedKeysFile)
+
+		if err != nil {
+			return errors.New("Authorized keys file : invalid path")
+		}
+	}
+
+	//TODO better log files verification
+	if c.EventsLogFile == "" {
+		c.EventsLogFile = defaultEventsLogFile
+	}
+
+	if c.SystemLogFile == "" {
+		c.SystemLogFile = defaultSystemLogFile
+	}
+
+	return nil
+}

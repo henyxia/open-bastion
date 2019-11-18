@@ -1,0 +1,9 @@
+{
+    "PermitPasswordLogin": true,
+    "PermitKeyLogin": true,
+	"PermitRootLogin": false,
+	"AuthorizedKeysFile": "",
+	"PrivateKeyFile": "",
+	"ListenPort": 2022,
+	"ListenAddress": "0.0.0.0"
+}
