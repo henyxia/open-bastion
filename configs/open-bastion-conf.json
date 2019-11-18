@@ -1,9 +1,14 @@
 {
-    "PermitPasswordLogin": true,
-    "PermitKeyLogin": true,
+	"PermitPasswordLogin": true,
+	"PermitKeyLogin": true,
 	"PermitRootLogin": false,
 	"AuthorizedKeysFile": "",
+	"UserKeysDir": "",
 	"PrivateKeyFile": "",
-	"ListenPort": 2022,
+	"EventsLogFile": "",
+	"SystemLogFile": "",
+	"AsyncEventsLog": true,
+	"AsyncSystemLog": true,
+	"ListenPort": 22,
 	"ListenAddress": "0.0.0.0"
 }

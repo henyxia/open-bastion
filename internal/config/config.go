@@ -6,7 +6,6 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
-	"path/filepath"
 )
 
 // Config struct contains the server configuration
@@ -16,16 +15,31 @@ type Config struct {
 	PermitRootLogin     bool   `json:"PermitRootLogin"`
 	AuthorizedKeysFile  string `json:"AuthorizedKeysFile"`
 	PrivateKeyFile      string `json:"PrivateKeyFile"`
+	UserKeysDir         string `json:"UserKeysDir"`
 	EventsLogFile       string `json:"EventsLogFile"`
 	SystemLogFile       string `json:"SystemLogFile"`
+	AsyncEventsLog      bool   `json:"AsyncEventsLog"`
+	AsyncSystemLog      bool   `json:"AsyncSystemLog"`
 	ListenPort          int    `json:"ListenPort"`
 	ListenAddress       string `json:"ListenAddress"`
 }
+
+//BastionConfig Hold the global configuration
+var BastionConfig Config
 
 // ParseConfig try to open and parse the file at the specified path.
 // If the path is invalid or empty, the function will try to find a config file
 // at the default locations.
 func (c *Config) ParseConfig(path string) error {
+	//TODO correct permissions
+	if _, err := os.Stat("/var/lib/open-bastion/users/"); os.IsNotExist(err) {
+		os.MkdirAll("/var/lib/open-bastion/users/", os.ModeDir)
+	}
+
+	if _, err := os.Stat("/var/lib/open-bastion/logs/"); os.IsNotExist(err) {
+		os.MkdirAll("/var/lib/open-bastion/logs/", os.ModeDir)
+	}
+
 	home, err := os.UserHomeDir()
 
 	if err != nil {
@@ -37,23 +51,19 @@ func (c *Config) ParseConfig(path string) error {
 		"/etc/open-bastion/open-bastion-conf.json",
 		home + "/.config/open-bastion/open-bastion-conf.json",
 		home + "/.config/open-bastion-conf.json",
+		home + "/.open-bastion/open-bastion-conf.json",
 	}
 
 	defaultPrivateKey := home + "/.ssh/id_rsa"
 	defaultAuthorizedKeys := home + "/.ssh/authorized_keys"
 	defaultSSHPort := 22
 
-	//TODO better log location
-	defaultLogsDirectory, err := os.Executable()
+	defaultLogsDirectory := "/var/lib/open-bastion/logs/"
 
-	if err != nil {
-		return err
-	}
+	defaultUserKeysDirectory := "/var/lib/open-bastion/users/"
 
-	defaultLogsDirectory = filepath.Dir(defaultLogsDirectory)
-
-	defaultEventsLogFile := defaultLogsDirectory + "/open-bastion-events.log"
-	defaultSystemLogFile := defaultLogsDirectory + "/open-bastion-system.log"
+	defaultEventsLogFile := defaultLogsDirectory + "open-bastion-events.log"
+	defaultSystemLogFile := defaultLogsDirectory + "open-bastion-system.log"
 
 	configPath := ""
 
@@ -101,7 +111,11 @@ func (c *Config) ParseConfig(path string) error {
 	}
 
 	//By default, object keys which don't have a corresponding struct field are ignored
-	json.Unmarshal([]byte(byteContent), &c)
+	err = json.Unmarshal([]byte(byteContent), &c)
+
+	if err != nil {
+		return err
+	}
 
 	if c.PermitPasswordLogin == false && c.PermitKeyLogin == false {
 		return errors.New("No authorized login method")
@@ -144,6 +158,10 @@ func (c *Config) ParseConfig(path string) error {
 
 	if c.SystemLogFile == "" {
 		c.SystemLogFile = defaultSystemLogFile
+	}
+
+	if c.UserKeysDir == "" {
+		c.UserKeysDir = defaultUserKeysDirectory
 	}
 
 	return nil
