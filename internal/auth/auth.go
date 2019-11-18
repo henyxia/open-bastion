@@ -1,6 +1,8 @@
 package auth
 
 import (
+	"errors"
+	"github.com/open-bastion/open-bastion/internal/config"
 	"golang.org/x/crypto/ssh"
 	"io/ioutil"
 	"os"
@@ -37,4 +39,24 @@ func (ak *Auth) ReadAuthorizedKeysFile(path string) (err error) {
 		byteContent = rest
 	}
 	return nil
+}
+
+// ParseUserPrivateKey takes the user and path of the keys directory and try to
+// parse /var/lib/open-bastion/users/[user]/egress-keys/[user]
+// Returns a signer if successful, an error otherwise
+func ParseUserPrivateKey(user string) (ssh.Signer, error) {
+	//The user should be valid as the handshake has already been validated by the bastion
+	path := config.BastionConfig.UserKeysDir + user + "/egress-keys/"
+
+	privateKeyBytes, err := ioutil.ReadFile(path + user)
+	if err != nil {
+		return nil, errors.New("User " + user + ": Failed to load private key : " + err.Error())
+	}
+
+	privateSigner, err := ssh.ParsePrivateKey(privateKeyBytes)
+	if err != nil {
+		return nil, errors.New("User " + user + ": Failed to parse private key : " + err.Error())
+	}
+
+	return privateSigner, nil
 }

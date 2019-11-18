@@ -2,6 +2,7 @@ package ingress
 
 import (
 	"errors"
+	"github.com/open-bastion/open-bastion/internal/system"
 	"golang.org/x/crypto/ssh"
 	"io/ioutil"
 	"net"
@@ -17,9 +18,25 @@ type Ingress struct {
 func (in *Ingress) ConfigSSHServer(ak map[string]bool, privateKeyPath string) error {
 	in.SSHServerConfig = &ssh.ServerConfig{
 		PublicKeyCallback: func(c ssh.ConnMetadata, pubKey ssh.PublicKey) (*ssh.Permissions, error) {
+			//TODO properly log that
+			s, err := system.GetUserStatus(c.User())
+
+			if err != nil {
+				return nil, err
+			}
+
+			if s == system.Inactive {
+				return nil, errors.New("Account deactivated")
+			}
+
+			if s != system.Active {
+				return nil, errors.New("Invalid user")
+			}
+
 			if ak[string(pubKey.Marshal())] {
 				return &ssh.Permissions{
 					// Record the public key used for authentication.
+					//TODO test that with multiple keys
 					Extensions: map[string]string{
 						"pubkey-fp": ssh.FingerprintSHA256(pubKey),
 					},

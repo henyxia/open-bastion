@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"github.com/open-bastion/open-bastion/internal/auth"
@@ -15,25 +16,43 @@ import (
 	"strconv"
 )
 
+//Client represent a user and all the associated ressources
+type Client struct {
+	TCPConnexion net.Conn
+
+	SSHConnexion *ssh.ServerConn
+	sshChan      <-chan ssh.NewChannel
+	sshCommChan  ssh.Channel
+
+	User       string
+	SSHKey     ssh.Signer
+	RawCommand string
+	Protocol   string
+
+	BackendCommand string
+	BackendUser    string
+	BackendHost    string
+	BackendPort    int
+}
+
 func main() {
 	var configPath = flag.String("config-file", "", "(Optional) Specifies the configuration file path")
 
 	flag.Parse()
 
 	var sshServer ingress.Ingress
-	var config config.Config
 	var auth auth.Auth
-	clientChannel := make(chan net.Conn)
+	clientChannel := make(chan *Client)
 	defer close(clientChannel)
 
-	err := config.ParseConfig(*configPath)
+	err := config.BastionConfig.ParseConfig(*configPath)
 
 	if err != nil {
 		fmt.Printf("Error : " + err.Error())
 		os.Exit(1)
 	}
 
-	err = logs.Logger.InitLogger(config.EventsLogFile, config.SystemLogFile)
+	err = logs.Logger.InitLogger(config.BastionConfig.EventsLogFile, config.BastionConfig.SystemLogFile, config.BastionConfig.AsyncEventsLog, config.BastionConfig.AsyncSystemLog)
 
 	if err != nil {
 		fmt.Printf("Error : " + err.Error())
@@ -41,41 +60,58 @@ func main() {
 	}
 
 	logs.Logger.StartLogger()
+	defer logs.Logger.StopLogger()
 
-	err = auth.ReadAuthorizedKeysFile(config.AuthorizedKeysFile)
-
-	if err != nil {
-		fmt.Printf("Error : " + err.Error())
-		os.Exit(1)
-	}
-
-	err = sshServer.ConfigSSHServer(auth.AuthorizedKeys, config.PrivateKeyFile)
+	err = auth.ReadAuthorizedKeysFile(config.BastionConfig.AuthorizedKeysFile)
 
 	if err != nil {
 		fmt.Printf("Error : " + err.Error())
 		os.Exit(1)
 	}
 
-	err = sshServer.ConfigTCPListener(config.ListenAddress + ":" + strconv.Itoa(config.ListenPort))
+	err = sshServer.ConfigSSHServer(auth.AuthorizedKeys, config.BastionConfig.PrivateKeyFile)
 
 	if err != nil {
 		fmt.Printf("Error : " + err.Error())
 		os.Exit(1)
 	}
 
-	for i := 0; i < 5; i++ {
-		go func(sshConfig *ssh.ServerConfig) {
-			for {
-				c := <-clientChannel
+	err = sshServer.ConfigTCPListener(config.BastionConfig.ListenAddress + ":" + strconv.Itoa(config.BastionConfig.ListenPort))
 
-				handleTCPConn(&c, sshConfig)
+	if err != nil {
+		fmt.Printf("Error : " + err.Error())
+		os.Exit(1)
+	}
+
+	go func(sshConfig *ssh.ServerConfig) {
+		for {
+			c := <-clientChannel
+
+			err = c.handshakeSSH(sshConfig)
+
+			if err != nil {
+				log.Print("Failed to handle the TCP conn: ", err)
+				continue
 			}
-		}(sshServer.SSHServerConfig)
-	}
+
+			err = c.handleSSHConnexion()
+
+			if err != nil {
+				log.Print("Failed to handle the TCP conn: ", err)
+				continue
+			}
+
+			go c.dialBackend()
+		}
+	}(sshServer.SSHServerConfig)
 
 	for {
 		log.Println("Wait for a new connection")
-		client, err := sshServer.TCPListener.Accept()
+		client := new(Client)
+
+		client.TCPConnexion, err = sshServer.TCPListener.Accept()
+
+		//Create new Client struct and pass it around
 
 		if err != nil {
 			log.Printf("failed to accept incoming connection: %v", err)
@@ -86,68 +122,122 @@ func main() {
 	}
 }
 
-func handleTCPConn(c *net.Conn, sshConfig *ssh.ServerConfig) {
+func (client *Client) handshakeSSH(sshConfig *ssh.ServerConfig) error {
+	// func handshakeSSH(c *net.Conn, sshConfig *ssh.ServerConfig) (*ssh.ServerConn, <-chan ssh.NewChannel, error) {
 	// Before use, a handshake must be performed on the incoming
 	// net.Conn.
-	hsConn, chans, reqs, err := ssh.NewServerConn(*c, sshConfig)
+	var reqs <-chan *ssh.Request
+	var err error
+
+	client.SSHConnexion, client.sshChan, reqs, err = ssh.NewServerConn(client.TCPConnexion, sshConfig)
+
 	if err != nil {
 		log.Print("Failed to handshake: ", err)
-		return
+		return err
 	}
 
-	log.Printf("User %s logged in with key %s", hsConn.User(), hsConn.Permissions.Extensions["pubkey-fp"])
-	//logs.Logger.LogEvent("Logged in with key : " + string(hsConn.Permissions.Extensions["pubkey-fp"]) + "\n")
+	client.User = client.SSHConnexion.User()
 
-	go handleSSH(reqs, chans)
-}
-
-func handleSSH(reqs <-chan *ssh.Request, chans <-chan ssh.NewChannel) {
 	// The incoming Request channel must be serviced.
 	go func() {
+		//TODO verify this is correctly cleaned up
 		ssh.DiscardRequests(reqs)
 	}()
 
+	return nil
+}
+
+// func handleSSH(chans <-chan ssh.NewChannel, conn *ssh.ServerConn) {
+func (client *Client) handleSSHConnexion() error {
+	defer client.SSHConnexion.Close()
+
+	var requests <-chan *ssh.Request
 	// Service the incoming Channel channel.
-	for newChannel := range chans {
-		log.Printf("Channel opened (type=%s)", newChannel.ChannelType())
+	for newChannel := range client.sshChan {
 		if newChannel.ChannelType() != "session" {
 			newChannel.Reject(ssh.UnknownChannelType, "unknown channel type")
 			continue
 		}
 
-		//fmt.Print(string(newChannel.ExtraData()))
-
-		channel, requests, err := newChannel.Accept()
+		var err error
+		client.sshCommChan, requests, err = newChannel.Accept()
 		if err != nil {
 			log.Printf("Could not accept channel: %v", err)
 		}
+		defer client.sshCommChan.Close()
+		break
+	}
 
-		var payload string
+	for req := range requests {
+		if req.Type == "exec" {
+			//The request payload is a raw byte array. Its 4 first bytes contain
+			//its length so we need to remove them to correctly get the strings
+			//TODO We limit it to 512 to avoid abuses, set proper limit
+			client.RawCommand = string(req.Payload[4:512])
+			break
+		} else if req.Type == "shell" {
+			//A shell should not be requested on the bastion
+			//This is here to prevent the connexion to hang with a badly formed payload
+			client.sshCommChan.Write([]byte("Error : Invalid payload\n"))
+			return errors.New("invalid payload")
+		}
+	}
 
-		//The exec request should contains our backend information
-		for req := range requests {
-			if req.Type == "exec" {
-				//The request payload is a raw byte array. Its 4 first bytes contain
-				//its length so we need to remove them to correctly get the strings
-				payload = string(req.Payload[4:])
-				break
-			}
+	if client.RawCommand != "" {
+		bc, err := egress.ParseBackendInfo(client.RawCommand)
+
+		//TODO return the correct thing, i was just too lazy to change is for now
+		client.BackendCommand = bc.Command
+		client.BackendUser = bc.User
+		client.BackendHost = bc.Host
+		client.BackendPort = bc.Port
+
+		if err != nil {
+			errStr := "Error : " + err.Error() + "\n"
+			client.sshCommChan.Write([]byte(errStr))
+			return errors.New("invalid payload")
 		}
 
-		if payload != "" {
-			bc, err := egress.ParseBackendInfo(payload)
+		// //If no user is provided for the backend, use the one connected to the bastion
+		// //The username is parsed during the handshake, thus it should not be a problem to
+		// //use it here directly
+		// if bc.User == "" {
+		// 	bc.User = conn.User()
+		// }
 
-			if err != nil {
-				log.Printf("Error : " + err.Error())
-				return
-			}
+	} else {
+		client.sshCommChan.Write([]byte("Error : Invalid payload\n"))
+		return errors.New("invalid payload")
+	}
 
-			// jump to new connection
-			err = egress.DialSSH(channel, bc)
+	return nil
+}
 
-			if err != nil {
-				fmt.Printf("Error : " + err.Error())
-			}
-		}
+func (client *Client) dialBackend() {
+	//The user has already been validated during the ssh handshake and should be good
+	//We use the connecting user to parse its key
+	var err error
+
+	client.SSHKey, err = auth.ParseUserPrivateKey(client.User)
+
+	if err != nil {
+		errStr := "Error : " + err.Error() + "\n"
+		client.sshCommChan.Write([]byte(errStr))
+		return
+	}
+
+	bc := egress.BackendConn{
+		Command: client.BackendCommand,
+		User:    client.BackendUser,
+		Host:    client.BackendHost,
+		Port:    client.BackendPort,
+	}
+
+	// jump to new connection
+	err = egress.DialSSH(client.sshCommChan, bc, client.SSHKey)
+
+	if err != nil {
+		errStr := "Error : " + err.Error() + "\n"
+		client.sshCommChan.Write([]byte(errStr))
 	}
 }

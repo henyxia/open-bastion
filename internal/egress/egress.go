@@ -2,36 +2,38 @@ package egress
 
 import (
 	"errors"
-	"fmt"
 	"golang.org/x/crypto/ssh"
 	"io"
 	"log"
-	"net"
-	"regexp"
 	"strconv"
 	"strings"
 )
 
 // BackendConn contains the informations to establish a connection to a backend
 type BackendConn struct {
-	User string
-	Host string
-	Port int
+	Command string
+	User    string
+	Host    string
+	Port    int
 }
 
 // DialSSH contact the destination backend server
-func DialSSH(channel ssh.Channel, bc BackendConn) error {
-	defer channel.Close()
-
-	cb := func() (string, error) {
+func DialSSH(channel ssh.Channel, bc BackendConn, signer ssh.Signer) error {
+	pcb := func() (string, error) {
 		return "", nil
+	}
+
+	var authMethods []ssh.AuthMethod = []ssh.AuthMethod{ssh.PasswordCallback(pcb)}
+
+	if signer != nil {
+		authMethods = append(authMethods, ssh.PublicKeys(signer))
 	}
 
 	config := &ssh.ClientConfig{
 		User: bc.User,
-		Auth: []ssh.AuthMethod{
-			ssh.PasswordCallback(cb),
-		},
+		Auth: authMethods,
+		//This should be replaced by HostKeyCallBack and use a mecanism to
+		//verify the backend host key
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 	}
 
@@ -55,23 +57,7 @@ func DialSSH(channel ssh.Channel, bc BackendConn) error {
 	}
 
 	go func() {
-		//io.Copy(stdin, channel)
-		log := make(chan []byte)
-		defer close(log)
-
-		go func(log chan []byte) {
-			for {
-				txt, ok := <-log
-
-				if !ok {
-					break
-				}
-
-				fmt.Printf(string(txt))
-			}
-		}(log)
-
-		copy(stdin, channel, log)
+		copy(stdin, channel, nil)
 	}()
 
 	stdout, err := session.StdoutPipe()
@@ -80,7 +66,6 @@ func DialSSH(channel ssh.Channel, bc BackendConn) error {
 	}
 
 	go func() {
-		//io.Copy(channel, stdout)
 		copy(channel, stdout, nil)
 	}()
 
@@ -92,7 +77,7 @@ func DialSSH(channel ssh.Channel, bc BackendConn) error {
 
 	// Request pseudo terminal
 	if err := session.RequestPty("xterm", 80, 40, modes); err != nil {
-		return errors.New("Error requestion pseudo terminal : " + err.Error())
+		return errors.New("Error requesting pseudo terminal : " + err.Error())
 	}
 
 	// Start remote shell
@@ -113,29 +98,36 @@ func DialSSH(channel ssh.Channel, bc BackendConn) error {
 	return nil
 }
 
-// ParseBackendInfo takes a array containing our payload command and returns
+// ParseBackendInfo takes a string containing our payload command and returns
 // a BackendConn struct with the required infos to call DialSSH
 func ParseBackendInfo(payload string) (bc BackendConn, err error) {
-	command := strings.Split(payload, " ")
-
-	if command == nil || len(command) < 1 {
+	if len(payload) == 0 || len(payload) > 1024 {
 		return bc, errors.New("Invalid payload")
 	}
 
-	reg := regexp.MustCompile(`^.+@.+$`)
-	regPort := regexp.MustCompile(`-p`)
+	//Remove leading and trailing whitespaces
+	payload = strings.TrimSpace(payload)
 
-	for i, s := range command {
-		if reg.Match([]byte(s)) {
-			arr := strings.Split(s, `@`)
+	command := strings.Split(payload, " ")
 
-			if net.ParseIP(arr[1]) == nil {
-				return bc, errors.New("Could not parse host")
-			}
+	if command == nil || len(command) < 2 {
+		return bc, errors.New("Invalid payload")
+	}
 
-			bc.User = arr[0]
-			bc.Host = arr[1]
-		} else if regPort.Match([]byte(s)) {
+	c := command[0]
+
+	if c == "ssh" {
+		bc.Command = "ssh"
+	} else if c == "telnet" {
+		bc.Command = "telnet"
+	} else if c == "bastion" {
+		bc.Command = "bastion"
+	}
+
+	for i := 0; i < len(command); i++ {
+		if command[i] == "" {
+			continue
+		} else if command[i] == "-p" {
 			if i+1 < len(command) {
 				port, err := strconv.Atoi(command[i+1])
 
@@ -148,17 +140,40 @@ func ParseBackendInfo(payload string) (bc BackendConn, err error) {
 				}
 
 				bc.Port = port
+				//Don't go over the next parameter as it already as been read
+				i = i + 1
 			} else {
 				return bc, errors.New("Invalid port option")
+			}
+		} else {
+			arr := strings.Split(command[i], `@`)
+
+			if len(arr) == 0 {
+				return bc, errors.New("Could not parse destination")
+			}
+
+			if len(arr) == 1 {
+				bc.Host = arr[0]
+				continue
+			}
+
+			if len(arr) == 2 {
+				bc.User = arr[0]
+				bc.Host = arr[1]
+				continue
+			}
+
+			if len(arr) > 2 {
+				return bc, errors.New("Could not parse destination")
 			}
 		}
 	}
 
-	if bc.Port == 0 {
+	if bc.Command == "ssh" && bc.Port == 0 {
 		bc.Port = 22
 	}
 
-	if bc.User == "" || bc.Host == "" {
+	if bc.Host == "" {
 		return bc, errors.New("Could not parse backend parameters")
 	}
 
