@@ -15,11 +15,11 @@ type Ingress struct {
 }
 
 // ConfigSSHServer is used to configure the SSH server the bastion runs
-func (in *Ingress) ConfigSSHServer(ak map[string]bool, privateKeyPath string) error {
+func (in *Ingress) ConfigSSHServer(ak map[string]bool, privateKeyPath string, dataStore system.DataStore) error {
 	in.SSHServerConfig = &ssh.ServerConfig{
 		PublicKeyCallback: func(c ssh.ConnMetadata, pubKey ssh.PublicKey) (*ssh.Permissions, error) {
 			//TODO properly log that
-			s, err := system.GetUserStatus(c.User())
+			s, err := dataStore.GetUserStatus(c.User())
 
 			if err != nil {
 				return nil, err

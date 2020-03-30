@@ -9,6 +9,7 @@ import (
 	"github.com/open-bastion/open-bastion/internal/egress"
 	"github.com/open-bastion/open-bastion/internal/ingress"
 	"github.com/open-bastion/open-bastion/internal/logs"
+	"github.com/open-bastion/open-bastion/internal/system"
 	"golang.org/x/crypto/ssh"
 	"log"
 	"net"
@@ -42,6 +43,7 @@ func main() {
 
 	var sshServer ingress.Ingress
 	var auth auth.Auth
+	var dataStore system.DataStore
 	clientChannel := make(chan *Client)
 	defer close(clientChannel)
 
@@ -62,6 +64,13 @@ func main() {
 	logs.Logger.StartLogger()
 	defer logs.Logger.StopLogger()
 
+	dataStore, err = system.InitStorage("system")
+
+	if err != nil {
+		fmt.Printf("Error : " + err.Error())
+		os.Exit(1)
+	}
+
 	err = auth.ReadAuthorizedKeysFile(config.BastionConfig.AuthorizedKeysFile)
 
 	if err != nil {
@@ -69,7 +78,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	err = sshServer.ConfigSSHServer(auth.AuthorizedKeys, config.BastionConfig.PrivateKeyFile)
+	err = sshServer.ConfigSSHServer(auth.AuthorizedKeys, config.BastionConfig.PrivateKeyFile, dataStore)
 
 	if err != nil {
 		fmt.Printf("Error : " + err.Error())
@@ -101,7 +110,11 @@ func main() {
 				continue
 			}
 
-			go c.dialBackend()
+			if c.BackendCommand == "bastion" {
+
+			} else {
+				go c.dialBackend()
+			}
 		}
 	}(sshServer.SSHServerConfig)
 
@@ -172,8 +185,8 @@ func (client *Client) handleSSHConnexion() error {
 		if req.Type == "exec" {
 			//The request payload is a raw byte array. Its 4 first bytes contain
 			//its length so we need to remove them to correctly get the strings
-			//TODO We limit it to 512 to avoid abuses, set proper limit
-			client.RawCommand = string(req.Payload[4:512])
+			//TODO set proper limit
+			client.RawCommand = string(req.Payload[4:])
 			break
 		} else if req.Type == "shell" {
 			//A shell should not be requested on the bastion
@@ -198,12 +211,12 @@ func (client *Client) handleSSHConnexion() error {
 			return errors.New("invalid payload")
 		}
 
-		// //If no user is provided for the backend, use the one connected to the bastion
-		// //The username is parsed during the handshake, thus it should not be a problem to
-		// //use it here directly
-		// if bc.User == "" {
-		// 	bc.User = conn.User()
-		// }
+		//If no user is provided for the backend, use the one connected to the bastion
+		//The username is parsed during the handshake, thus it should not be a problem to
+		//use it here directly
+		if client.BackendUser == "" {
+			client.BackendUser = client.User
+		}
 
 	} else {
 		client.sshCommChan.Write([]byte("Error : Invalid payload\n"))
@@ -240,4 +253,8 @@ func (client *Client) dialBackend() {
 		errStr := "Error : " + err.Error() + "\n"
 		client.sshCommChan.Write([]byte(errStr))
 	}
+}
+
+func (client *Client) runCommand(dataStore system.DataStore) error {
+	return nil
 }
