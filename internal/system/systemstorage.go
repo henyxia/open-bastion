@@ -10,28 +10,18 @@ import (
 	"regexp"
 )
 
-type UserInfo struct {
-	Active bool `json:"active"`
-	Admin  bool `json:"admin"`
+type SystemStore struct {
 }
 
-// Represents a user status
-const (
-	Active = iota
-	Inactive
-	Invalid
-	Error
-)
-
 //AddUser add a user to the system and create a private key for him
-func AddUser(username string, privateKeyType string) error {
+func (s SystemStore) AddUser(username string, privateKeyType string) error {
 	//Should we validate the username when we parse the input and considere it valid from then on
 	// or should we parse it in this function?
 	if !isUsernameValid(username) {
 		return errors.New("Invalid username")
 	}
 
-	us, err := GetUserStatus(username)
+	us, err := s.GetUserStatus(username)
 
 	if err != nil {
 		return err
@@ -67,14 +57,14 @@ func AddUser(username string, privateKeyType string) error {
 }
 
 //DeleteUser delete a user if it exists and its associated files
-func DeleteUser(username string) error {
+func (s SystemStore) DeleteUser(username string) error {
 	//TODO
 
 	return nil
 }
 
 //GetUserStatus takes a username, validate it and returns the status of the user
-func GetUserStatus(username string) (int, error) {
+func (s SystemStore) GetUserStatus(username string) (int, error) {
 	if !isUsernameValid(username) {
 		return Error, errors.New("Invalid username provided")
 	}

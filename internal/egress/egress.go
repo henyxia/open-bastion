@@ -122,6 +122,8 @@ func ParseBackendInfo(payload string) (bc BackendConn, err error) {
 		bc.Command = "telnet"
 	} else if c == "bastion" {
 		bc.Command = "bastion"
+	} else {
+		return BackendConn{}, errors.New("command not found")
 	}
 
 	for i := 0; i < len(command); i++ {

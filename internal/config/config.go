@@ -31,13 +31,12 @@ var BastionConfig Config
 // If the path is invalid or empty, the function will try to find a config file
 // at the default locations.
 func (c *Config) ParseConfig(path string) error {
-	//TODO correct permissions
 	if _, err := os.Stat("/var/lib/open-bastion/users/"); os.IsNotExist(err) {
-		os.MkdirAll("/var/lib/open-bastion/users/", os.ModeDir)
+		os.MkdirAll("/var/lib/open-bastion/users/", 0660)
 	}
 
-	if _, err := os.Stat("/var/lib/open-bastion/logs/"); os.IsNotExist(err) {
-		os.MkdirAll("/var/lib/open-bastion/logs/", os.ModeDir)
+	if _, err := os.Stat("/var/log/open-bastion/"); os.IsNotExist(err) {
+		os.MkdirAll("/var/log/open-bastion/", 0660)
 	}
 
 	home, err := os.UserHomeDir()
@@ -58,7 +57,7 @@ func (c *Config) ParseConfig(path string) error {
 	defaultAuthorizedKeys := home + "/.ssh/authorized_keys"
 	defaultSSHPort := 22
 
-	defaultLogsDirectory := "/var/lib/open-bastion/logs/"
+	defaultLogsDirectory := "/var/log/open-bastion/"
 
 	defaultUserKeysDirectory := "/var/lib/open-bastion/users/"
 
