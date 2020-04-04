@@ -8,9 +8,16 @@ import (
 	"os"
 	"os/exec"
 	"regexp"
+	"strings"
 )
 
+// SystemStore represents the system storage
 type SystemStore struct {
+}
+
+// InitSystemStore return an initialized DataStore
+func InitSystemStore() (SystemStore, error) {
+	return SystemStore{}, errors.New("can't initialize system store")
 }
 
 //AddUser add a user to the system and create a private key for him
@@ -31,26 +38,27 @@ func (s SystemStore) AddUser(username string, privateKeyType string) error {
 		return errors.New("User " + username + " already exists")
 	}
 
-	//TODO correctly set permissions
 	userKeyPath := config.BastionConfig.UserKeysDir + username + "/egress-keys/" + username
 
 	//TODO should we output the public key on stdout when creating the user?
 	if privateKeyType == "ecdsa" {
 		cmd := exec.Command("ssh-keygen", "-t", "ecdsa", "-b", "521", "-f", userKeyPath)
 		err = cmd.Run()
-
-		if err != nil {
-			return err
-		}
 	} else if privateKeyType == "rsa" {
 		cmd := exec.Command("ssh-keygen", "-t", "rsa", "-b", "4096", "-f", userKeyPath)
 		err = cmd.Run()
-
-		if err != nil {
-			return err
-		}
 	} else {
 		return errors.New("Unknown key type")
+	}
+
+	if err != nil {
+		return err
+	}
+
+	err = os.Chmod(userKeyPath, 0600)
+
+	if err != nil {
+		return err
 	}
 
 	return nil
@@ -58,7 +66,19 @@ func (s SystemStore) AddUser(username string, privateKeyType string) error {
 
 //DeleteUser delete a user if it exists and its associated files
 func (s SystemStore) DeleteUser(username string) error {
-	//TODO
+	// Sanitize input
+	// TODO better sanitizing, maybe move it in the command parsing
+	if strings.Contains(username, "/.") {
+		return errors.New("username contains invalid character")
+	}
+
+	_, err := os.Stat(config.BastionConfig.UserKeysDir + username + "/")
+
+	if err != nil {
+		return err
+	}
+
+	os.RemoveAll(config.BastionConfig.UserKeysDir + username + "/")
 
 	return nil
 }
