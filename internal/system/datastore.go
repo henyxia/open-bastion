@@ -1,8 +1,6 @@
 package system
 
-import (
-	"errors"
-)
+import ()
 
 // DataStore is the interface used to access users data
 type DataStore interface {
@@ -24,12 +22,3 @@ const (
 	Invalid
 	Error
 )
-
-// InitStorage return an initialized DataStore
-func InitStorage(storageType string) (DataStore, error) {
-	if storageType == "system" {
-		return SystemStore{}, nil
-	}
-
-	return SystemStore{}, errors.New("can't initialize data store")
-}
