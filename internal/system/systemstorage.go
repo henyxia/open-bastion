@@ -17,7 +17,7 @@ type SystemStore struct {
 
 // InitSystemStore return an initialized DataStore
 func InitSystemStore() (SystemStore, error) {
-	return SystemStore{}, errors.New("can't initialize system store")
+	return SystemStore{}, nil
 }
 
 //AddUser add a user to the system and create a private key for him
