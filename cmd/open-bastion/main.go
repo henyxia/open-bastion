@@ -1,18 +1,16 @@
 package main
 
 import (
-	"errors"
 	"flag"
 	"fmt"
 	"github.com/open-bastion/open-bastion/internal/auth"
+	"github.com/open-bastion/open-bastion/internal/client"
 	"github.com/open-bastion/open-bastion/internal/config"
-	"github.com/open-bastion/open-bastion/internal/egress"
 	"github.com/open-bastion/open-bastion/internal/ingress"
 	"github.com/open-bastion/open-bastion/internal/logs"
 	"github.com/open-bastion/open-bastion/internal/system"
 	"golang.org/x/crypto/ssh"
 	"log"
-	"net"
 	"os"
 	"strconv"
 )
@@ -24,7 +22,7 @@ func main() {
 
 	var sshServer ingress.Ingress
 	var auth auth.Auth
-	clientChannel := make(chan *Client)
+	clientChannel := make(chan *client.Client)
 	defer close(clientChannel)
 
 	err := config.BastionConfig.ParseConfig(*configPath)
@@ -47,7 +45,7 @@ func main() {
 	dataStore, err := system.InitSystemStore()
 
 	if err != nil {
-		fmt.Printf("Error : " + err.Error())
+		fmt.Println("Error : " + err.Error())
 		os.Exit(1)
 	}
 
@@ -76,14 +74,14 @@ func main() {
 		for {
 			c := <-clientChannel
 
-			err = c.handshakeSSH(sshConfig)
+			err = c.HandshakeSSH(sshConfig)
 
 			if err != nil {
 				log.Print("Failed to handle the TCP conn: ", err)
 				continue
 			}
 
-			err = c.handleSSHConnexion()
+			err = c.HandleSSHConnexion()
 
 			if err != nil {
 				log.Print("Failed to handle the TCP conn: ", err)
@@ -91,16 +89,16 @@ func main() {
 			}
 
 			if c.BackendCommand == "bastion" {
-				go c.runCommand(dataStore)
+				go c.RunCommand(dataStore)
 			} else {
-				go c.dialBackend()
+				go c.DialBackend()
 			}
 		}
 	}(sshServer.SSHServerConfig)
 
 	for {
 		log.Println("Wait for a new connection")
-		client := new(Client)
+		client := new(client.Client)
 
 		client.TCPConnexion, err = sshServer.TCPListener.Accept()
 

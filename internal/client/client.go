@@ -1,4 +1,25 @@
-package main
+package client
+
+import (
+	"errors"
+	"log"
+	"net"
+	"golang.org/x/crypto/ssh"
+	"github.com/open-bastion/open-bastion/internal/auth"
+	"github.com/open-bastion/open-bastion/internal/egress"
+	"github.com/open-bastion/open-bastion/internal/system"
+)
+
+const SSH_BAD_REQUEST_SHELL = "--- open-bastion ---\n\r"+
+"\n\r"+
+"[!] error\n\r"+
+"[!]\n\r"+
+"[!] your SSH request went through the bastion without target.\n\r"+
+"[!] to access a server simply run:\n\r"+
+"[!]\n\r"+
+"[!]     ssh BASTION_IP -- SERVER_IP\n\r"+
+"[!]\n\r"+
+"[!] this incident has been logged\n\r"
 
 //Client represent a user and all the associated ressources
 type Client struct {
@@ -22,7 +43,7 @@ type Client struct {
 type Command struct {
 }
 
-func (client *Client) handshakeSSH(sshConfig *ssh.ServerConfig) error {
+func (client *Client) HandshakeSSH(sshConfig *ssh.ServerConfig) error {
 	// func handshakeSSH(c *net.Conn, sshConfig *ssh.ServerConfig) (*ssh.ServerConn, <-chan ssh.NewChannel, error) {
 	// Before use, a handshake must be performed on the incoming
 	// net.Conn.
@@ -48,7 +69,7 @@ func (client *Client) handshakeSSH(sshConfig *ssh.ServerConfig) error {
 }
 
 // func handleSSH(chans <-chan ssh.NewChannel, conn *ssh.ServerConn) {
-func (client *Client) handleSSHConnexion() error {
+func (client *Client) HandleSSHConnexion() error {
 	defer client.SSHConnexion.Close()
 
 	var requests <-chan *ssh.Request
@@ -80,8 +101,8 @@ func (client *Client) handleSSHConnexion() error {
 		} else if req.Type == "shell" {
 			//A shell should not be requested on the bastion
 			//This is here to prevent the connexion to hang with a badly formed payload
-			client.sshCommChan.Write([]byte("Error : Invalid payload\n"))
-			return errors.New("invalid payload")
+			client.sshCommChan.Write([]byte(SSH_BAD_REQUEST_SHELL))
+			return errors.New("bad request type (shell)")
 		}
 	}
 
@@ -95,7 +116,7 @@ func (client *Client) handleSSHConnexion() error {
 		client.BackendPort = bc.Port
 
 		if err != nil {
-			errStr := "Error : " + err.Error() + "\n"
+			errStr := "Unable to parse target : " + err.Error() + "\n"
 			client.sshCommChan.Write([]byte(errStr))
 			return errors.New("invalid payload")
 		}
@@ -115,7 +136,7 @@ func (client *Client) handleSSHConnexion() error {
 	return nil
 }
 
-func (client *Client) dialBackend() {
+func (client *Client) DialBackend() {
 	//The user has already been validated during the ssh handshake and should be good
 	//We use the connecting user to parse its key
 	var err error
@@ -144,7 +165,7 @@ func (client *Client) dialBackend() {
 	}
 }
 
-func (client *Client) runCommand(dataStore system.DataStore) error {
+func (client *Client) RunCommand(dataStore system.DataStore) error {
 
 	return nil
 }
