@@ -42,7 +42,7 @@ func main() {
 	logs.Logger.StartLogger()
 	defer logs.Logger.StopLogger()
 
-	dataStore, err := system.InitSystemStore()
+	dataStore, err := system.InitSystemStore(config.BastionConfig)
 
 	if err != nil {
 		fmt.Println("Error : " + err.Error())
