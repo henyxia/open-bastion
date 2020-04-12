@@ -104,7 +104,7 @@ func (s SystemStore) GetUserStatus(username string) (int, error) {
 		return Error, errors.New("Invalid username provided")
 	}
 
-	userDir := s.path + username + "/"
+	userDir := s.path + "/" + username + "/"
 
 	if _, err := os.Stat(userDir); !os.IsNotExist(err) {
 		f, err := os.Open(userDir + "info.json")
@@ -139,7 +139,7 @@ func (s SystemStore) GetUserStatus(username string) (int, error) {
 		return Inactive, nil
 	}
 
-	return Invalid, nil
+	return Error, errors.New("User does not exist")
 }
 
 //GetUserEgressPrivateKey return the user's private key as a string
@@ -206,7 +206,7 @@ func isUsernameValid(username string) bool {
 
 	reg := regexp.MustCompile("[a-z_][a-z0-9_-]*[$]?")
 
-	if reg.Match([]byte(username)) == false {
+	if len(reg.Find([]byte(username))) != len(username) {
 		return false
 	}
 
