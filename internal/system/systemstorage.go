@@ -8,7 +8,6 @@ import (
 	"os"
 	"os/exec"
 	"regexp"
-	"strings"
 )
 
 // SystemStore represents the system storage
@@ -40,7 +39,7 @@ func (s SystemStore) AddUser(username string, privateKeyType string) error {
 	//Should we validate the username when we parse the input and considere it valid from then on
 	// or should we parse it in this function?
 	if !isUsernameValid(username) {
-		return errors.New("Invalid username")
+		return errors.New("error, invalid username")
 	}
 
 	us, err := s.GetUserStatus(username)
@@ -81,19 +80,15 @@ func (s SystemStore) AddUser(username string, privateKeyType string) error {
 
 //DeleteUser delete a user if it exists and its associated files
 func (s SystemStore) DeleteUser(username string) error {
-	// Sanitize input
-	// TODO better sanitizing, maybe move it in the command parsing
-	if strings.Contains(username, "/.") {
-		return errors.New("username contains invalid character")
+	if !isUsernameValid(username) {
+		return errors.New("error, invalid username")
 	}
 
-	_, err := os.Stat(s.path + username + "/")
+	err := os.RemoveAll(s.path + "/" + username + "/")
 
 	if err != nil {
 		return err
 	}
-
-	os.RemoveAll(s.path + username + "/")
 
 	return nil
 }
@@ -101,7 +96,7 @@ func (s SystemStore) DeleteUser(username string) error {
 //GetUserStatus takes a username, validate it and returns the status of the user
 func (s SystemStore) GetUserStatus(username string) (int, error) {
 	if !isUsernameValid(username) {
-		return Error, errors.New("Invalid username provided")
+		return Error, errors.New("error, invalid username")
 	}
 
 	userDir := s.path + "/" + username + "/"
@@ -144,17 +139,11 @@ func (s SystemStore) GetUserStatus(username string) (int, error) {
 
 //GetUserEgressPrivateKey return the user's private key as a string
 func (s SystemStore) GetUserEgressPrivateKey(username string) ([]byte, error) {
-	status, err := s.GetUserStatus(username)
-
-	if err != nil {
-		return nil, errors.New("error getting user status")
+	if !isUsernameValid(username) {
+		return nil, errors.New("error, invalid username")
 	}
-
-	if status != Active {
-		return nil, errors.New("error, user not active")
-	}
-
-	f, err := os.Open(s.path + username + "/egress-keys/" + username)
+	//TODO validate key
+	f, err := os.Open(s.path + "/" + username + "/egress-keys/" + username)
 
 	if err != nil {
 		return nil, errors.New("error reading key")
@@ -171,17 +160,11 @@ func (s SystemStore) GetUserEgressPrivateKey(username string) ([]byte, error) {
 
 //GetUserEgressPublicKey return the user's private key as a string
 func (s SystemStore) GetUserEgressPublicKey(username string) ([]byte, error) {
-	status, err := s.GetUserStatus(username)
-
-	if err != nil {
-		return nil, errors.New("error getting user status")
+	if !isUsernameValid(username) {
+		return nil, errors.New("error, invalid username")
 	}
-
-	if status != Active {
-		return nil, errors.New("error, user not active")
-	}
-
-	f, err := os.Open(s.path + username + "/egress-keys/" + username + ".pub")
+	//TODO validate key
+	f, err := os.Open(s.path + "/" + username + "/egress-keys/" + username + ".pub")
 
 	if err != nil {
 		return nil, errors.New("error reading key")
