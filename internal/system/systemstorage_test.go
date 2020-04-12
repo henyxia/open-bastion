@@ -209,3 +209,270 @@ func Test_isUsernameValid(t *testing.T) {
 		})
 	}
 }
+
+func TestSystemStore_GetUserEgressPublicKey(t *testing.T) {
+	type fields struct {
+		path string
+	}
+	type args struct {
+		username string
+	}
+
+	tempDir, err := ioutil.TempDir("", "open-bastion-testing")
+
+	if err != nil {
+		assert.Fail(t, err.Error())
+	}
+
+	//Ok
+	err = os.MkdirAll(tempDir+"/bob/egress-keys", 0777)
+
+	if err != nil {
+		assert.Fail(t, err.Error())
+	}
+
+	f, err := os.Create(tempDir + "/bob/egress-keys/bob.pub")
+
+	if err != nil {
+		assert.Fail(t, err.Error())
+	}
+
+	_, err = f.WriteString("mysuperpublickey")
+
+	if err != nil {
+		assert.Fail(t, err.Error())
+	}
+
+	err = f.Close()
+
+	if err != nil {
+		assert.Fail(t, err.Error())
+	}
+
+	//fail no file
+	err = os.MkdirAll(tempDir+"/alice/egress-keys", 0777)
+
+	if err != nil {
+		assert.Fail(t, err.Error())
+	}
+
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    []byte
+		wantErr bool
+	}{
+		{
+			name: "test ok",
+			fields: fields{
+				path: tempDir,
+			},
+			args: args{
+				username: "bob",
+			},
+			want:    []byte("mysuperpublickey"),
+			wantErr: false,
+		},
+		{
+			name: "test fail no file",
+			fields: fields{
+				path: tempDir,
+			},
+			args: args{
+				username: "alice",
+			},
+			want:    nil,
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := SystemStore{
+				path: tt.fields.path,
+			}
+			got, err := s.GetUserEgressPublicKey(tt.args.username)
+
+			assert.Equal(t, tt.want, got)
+			assert.Equal(t, tt.wantErr, err != nil)
+		})
+	}
+
+	os.RemoveAll(tempDir)
+}
+
+func TestSystemStore_GetUserEgressPrivateKey(t *testing.T) {
+	type fields struct {
+		path string
+	}
+	type args struct {
+		username string
+	}
+
+	tempDir, err := ioutil.TempDir("", "open-bastion-testing")
+
+	if err != nil {
+		assert.Fail(t, err.Error())
+	}
+
+	//Ok
+	err = os.MkdirAll(tempDir+"/bob/egress-keys", 0777)
+
+	if err != nil {
+		assert.Fail(t, err.Error())
+	}
+
+	f, err := os.Create(tempDir + "/bob/egress-keys/bob")
+
+	if err != nil {
+		assert.Fail(t, err.Error())
+	}
+
+	_, err = f.WriteString("mysuperprivatekey")
+
+	if err != nil {
+		assert.Fail(t, err.Error())
+	}
+
+	err = f.Close()
+
+	if err != nil {
+		assert.Fail(t, err.Error())
+	}
+
+	//fail no file
+	err = os.MkdirAll(tempDir+"/alice/egress-keys", 0777)
+
+	if err != nil {
+		assert.Fail(t, err.Error())
+	}
+
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    []byte
+		wantErr bool
+	}{
+		{
+			name: "test ok",
+			fields: fields{
+				path: tempDir,
+			},
+			args: args{
+				username: "bob",
+			},
+			want:    []byte("mysuperprivatekey"),
+			wantErr: false,
+		},
+		{
+			name: "test fail no file",
+			fields: fields{
+				path: tempDir,
+			},
+			args: args{
+				username: "alice",
+			},
+			want:    nil,
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := SystemStore{
+				path: tt.fields.path,
+			}
+			got, err := s.GetUserEgressPrivateKey(tt.args.username)
+
+			assert.Equal(t, tt.want, got)
+			assert.Equal(t, tt.wantErr, err != nil)
+		})
+	}
+
+	os.RemoveAll(tempDir)
+}
+
+func TestSystemStore_DeleteUser(t *testing.T) {
+	type fields struct {
+		path string
+	}
+	type args struct {
+		username string
+	}
+
+	tempDir, err := ioutil.TempDir("", "open-bastion-testing")
+
+	if err != nil {
+		assert.Fail(t, err.Error())
+	}
+
+	//Ok
+	err = os.MkdirAll(tempDir+"/bob/egress-keys", 0777)
+
+	if err != nil {
+		assert.Fail(t, err.Error())
+	}
+
+	f, err := os.Create(tempDir + "/bob/egress-keys/bob")
+
+	if err != nil {
+		assert.Fail(t, err.Error())
+	}
+
+	_, err = f.WriteString("mysuperprivatekey")
+
+	if err != nil {
+		assert.Fail(t, err.Error())
+	}
+
+	err = f.Close()
+
+	if err != nil {
+		assert.Fail(t, err.Error())
+	}
+
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		wantErr bool
+	}{
+		{
+			name: "test ok",
+			fields: fields{
+				path: tempDir,
+			},
+			args: args{
+				username: "bob",
+			},
+			wantErr: false,
+		},
+		{
+			name: "ok no file",
+			fields: fields{
+				path: tempDir,
+			},
+			args: args{
+				username: "alice",
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := SystemStore{
+				path: tt.fields.path,
+			}
+
+			err := s.DeleteUser(tt.args.username)
+
+			assert.Equal(t, tt.wantErr, err != nil)
+
+			if _, err := os.Stat(tempDir + "/" + tt.args.username); os.IsExist(err) {
+				assert.Fail(t, "error, file not deleted")
+			}
+		})
+	}
+
+	os.RemoveAll(tempDir)
+}
