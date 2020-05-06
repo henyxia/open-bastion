@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"github.com/open-bastion/open-bastion/internal/auth"
 	"github.com/open-bastion/open-bastion/internal/client"
 	"github.com/open-bastion/open-bastion/internal/config"
@@ -10,8 +9,6 @@ import (
 	"github.com/open-bastion/open-bastion/internal/logs"
 	"github.com/open-bastion/open-bastion/internal/system"
 	"golang.org/x/crypto/ssh"
-	"log"
-	"os"
 	"strconv"
 )
 
@@ -28,46 +25,45 @@ func main() {
 	err := config.BastionConfig.ParseConfig(*configPath)
 
 	if err != nil {
-		fmt.Printf("Error : " + err.Error())
-		os.Exit(1)
+		logs.Fatal("Error : " + err.Error())
 	}
 
-	err = logs.Logger.InitLogger(config.BastionConfig.EventsLogFile, config.BastionConfig.SystemLogFile, config.BastionConfig.AsyncEventsLog, config.BastionConfig.AsyncSystemLog)
+	// init system logger
+	err = logs.System.InitLogger(config.BastionConfig.EventsLogFile, config.BastionConfig.AsyncEventsLog)
 
 	if err != nil {
-		fmt.Printf("Error : " + err.Error())
-		os.Exit(1)
+		logs.Fatal("Error : " + err.Error())
 	}
 
-	logs.Logger.StartLogger()
-	defer logs.Logger.StopLogger()
+	// init user logger
+	err = logs.User.InitLogger(config.BastionConfig.SystemLogFile, config.BastionConfig.AsyncSystemLog)
+
+	if err != nil {
+		logs.System.Fatal("Error : " + err.Error())
+	}
 
 	dataStore, err := system.InitSystemStore(config.BastionConfig)
 
 	if err != nil {
-		fmt.Println("Error : " + err.Error())
-		os.Exit(1)
+		logs.System.Fatal("Error : " + err.Error())
 	}
 
 	err = auth.ReadAuthorizedKeysFile(config.BastionConfig.AuthorizedKeysFile)
 
 	if err != nil {
-		fmt.Printf("Error : " + err.Error())
-		os.Exit(1)
+		logs.System.Fatal("Error : " + err.Error())
 	}
 
 	err = sshServer.ConfigSSHServer(auth.AuthorizedKeys, config.BastionConfig.PrivateKeyFile, dataStore)
 
 	if err != nil {
-		fmt.Printf("Error : " + err.Error())
-		os.Exit(1)
+		logs.System.Fatal("Error : " + err.Error())
 	}
 
 	err = sshServer.ConfigTCPListener(config.BastionConfig.ListenAddress + ":" + strconv.Itoa(config.BastionConfig.ListenPort))
 
 	if err != nil {
-		fmt.Printf("Error : " + err.Error())
-		os.Exit(1)
+		logs.System.Fatal("Error : " + err.Error())
 	}
 
 	go func(sshConfig *ssh.ServerConfig) {
@@ -77,19 +73,19 @@ func main() {
 			err = c.HandshakeSSH(sshConfig)
 
 			if err != nil {
-				log.Print("Failed to handle the TCP conn: ", err)
+				logs.System.Error("Failed to handle the TCP conn: "+err.Error())
 				continue
 			}
 
 			err = c.HandleSSHConnexion()
 
 			if err != nil {
-				log.Print("Failed to handle the TCP conn: ", err)
+				logs.System.Error("Failed to handle the TCP conn: "+err.Error())
 				continue
 			}
 
 			if c.BackendCommand == "bastion" {
-				go c.RunCommand(dataStore)
+				c.RunCommand(dataStore)
 			} else {
 				go c.DialBackend()
 			}
@@ -97,7 +93,7 @@ func main() {
 	}(sshServer.SSHServerConfig)
 
 	for {
-		log.Println("Wait for a new connection")
+		logs.System.Debug("Wait for a new connection")
 		client := new(client.Client)
 
 		client.TCPConnexion, err = sshServer.TCPListener.Accept()
@@ -105,7 +101,7 @@ func main() {
 		//Create new Client struct and pass it around
 
 		if err != nil {
-			log.Printf("failed to accept incoming connection: %v", err)
+			logs.System.Warn("failed to accept incoming connection: "+err.Error())
 			continue
 		}
 

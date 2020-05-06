@@ -2,131 +2,90 @@ package logs
 
 import (
 	"errors"
-	"os"
 	"time"
+	"log"
+	"os"
 )
 
-// Logs contains the files pointers and channels used by the logging system
+// Log structure
 type Logs struct {
-	eventsLogFile  *os.File
-	systemLogFile  *os.File
-	eventsChannel  chan string
-	systemChannel  chan string
-	asyncEventsLog bool
-	asyncSystemLog bool
+	logFile *os.File
+	channel chan string
 }
+
+const (
+	PanicLevel = 6
+	FatalLevel = 5
+	ErrorLevel = 4
+	WarnLevel  = 3
+	InfoLevel  = 2
+	DebugLevel = 1
+	TraceLevel = 0
+)
 
 // Logger need to be initialized and is used for all the logging operations through the program
-var Logger Logs
+var (
+	System Logs
+	User   Logs
+)
 
 // InitLogger open or create the log files and open the communication channels used by the logger
-func (l *Logs) InitLogger(eventsLogFilePath string, systemLogFilePath string, asyncEventsLog bool, asyncSystemLog bool) error {
+func (l *Logs) InitLogger(logPath string, async bool) (error) {
 	var err error
-	l.eventsLogFile, err = os.OpenFile(eventsLogFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	l.logFile, err = os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	defer l.logFile.Close()
+
+	async = false
 
 	if err != nil {
-		return errors.New("Error opening or creating events log file : " + err.Error())
+		return errors.New("Error opening or creating log file : " + err.Error())
 	}
 
-	l.systemLogFile, err = os.OpenFile(systemLogFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-
-	if err != nil {
-		return errors.New("Error opening or creating system log file : " + err.Error())
+	if !async {
+		return err
 	}
 
-	if asyncEventsLog {
-		l.eventsChannel = make(chan string)
-		l.asyncEventsLog = true
-	} else {
-		l.asyncEventsLog = false
-	}
+	l.channel = make(chan string)
 
-	if asyncSystemLog {
-		l.systemChannel = make(chan string)
-		l.asyncSystemLog = true
-	} else {
-		l.asyncSystemLog = false
-	}
+	go func() {
+		for {
+			log, ok := <-l.channel
 
-	return nil
+			if !ok {
+				break
+			}
+
+			l.logFile.Write([]byte(log))
+		}
+		close(l.channel)
+	}()
+
+
+	return err
 }
 
-// StartLogger starts the goroutines used to communicate with the logger
-func (l *Logs) StartLogger() {
-	if l.asyncEventsLog {
-		go func() {
-			for {
-				log, ok := <-l.eventsChannel
-
-				if !ok {
-					break
-				}
-
-				l.eventsLogFile.Write([]byte(log))
-			}
-		}()
-	}
-
-	if l.asyncSystemLog {
-		go func() {
-			for {
-				log, ok := <-l.systemChannel
-
-				if !ok {
-					break
-				}
-
-				l.systemLogFile.Write([]byte(log))
-			}
-		}()
-	}
-}
-
-// StopLogger clean up the allocated ressources
-func (l *Logs) StopLogger() {
-
-	if l.asyncEventsLog {
-		close(l.eventsChannel)
-	}
-
-	if l.asyncSystemLog {
-		close(l.systemChannel)
-	}
-
-	l.eventsLogFile.Close()
-	l.systemLogFile.Close()
+func Fatal(message string) {
+	log.Fatalln(message)
 }
 
 // LogEvent writes to the events log file
-func (l *Logs) LogEvent(msg string) error {
+func (l *Logs) logGeneric(level int, msg string) error {
+	var err error
 	logMsg := time.Now().String() + " : " + msg + "\n"
 
-	if l.asyncEventsLog {
-		l.eventsChannel <- logMsg
+	if l.channel != nil {
+		l.channel <- logMsg
 	} else {
-		_, err := l.eventsLogFile.Write([]byte(logMsg))
-
-		if err != nil {
-			return err
-		}
+		_, err = l.logFile.Write([]byte(logMsg))
 	}
 
-	return nil
+	return err
 }
 
-// LogSystem writes to the system log file
-func (l *Logs) LogSystem(msg string) error {
-	logMsg := time.Now().String() + " : " + msg + "\n"
-
-	if l.asyncSystemLog {
-		l.systemChannel <- logMsg
-	} else {
-		_, err := l.systemLogFile.Write([]byte(logMsg))
-
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
+func (l *Logs) Panic(msg string) error { return l.logGeneric(PanicLevel, msg) }
+func (l *Logs) Fatal(msg string) error { return l.logGeneric(FatalLevel, msg) }
+func (l *Logs) Error(msg string) error { return l.logGeneric(ErrorLevel, msg) }
+func (l *Logs) Warn(msg string) error { return l.logGeneric(WarnLevel, msg) }
+func (l *Logs) Info(msg string) error { return l.logGeneric(InfoLevel, msg) }
+func (l *Logs) Debug(msg string) error { return l.logGeneric(DebugLevel, msg) }
+func (l *Logs) Trace(msg string) error { return l.logGeneric(TraceLevel, msg) }
