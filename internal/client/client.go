@@ -2,24 +2,25 @@ package client
 
 import (
 	"errors"
-	"log"
 	"net"
-	"golang.org/x/crypto/ssh"
+
 	"github.com/open-bastion/open-bastion/internal/auth"
 	"github.com/open-bastion/open-bastion/internal/egress"
+	logger "github.com/open-bastion/open-bastion/internal/logger"
 	"github.com/open-bastion/open-bastion/internal/system"
+	"golang.org/x/crypto/ssh"
 )
 
-const SSH_BAD_REQUEST_SHELL = "--- open-bastion ---\n\r"+
-"\n\r"+
-"[!] error\n\r"+
-"[!]\n\r"+
-"[!] your SSH request went through the bastion without target.\n\r"+
-"[!] to access a server simply run:\n\r"+
-"[!]\n\r"+
-"[!]     ssh BASTION_IP -- SERVER_IP\n\r"+
-"[!]\n\r"+
-"[!] this incident has been logged\n\r"
+const SSH_BAD_REQUEST_SHELL = "--- open-bastion ---\n\r" +
+	"\n\r" +
+	"[!] error\n\r" +
+	"[!]\n\r" +
+	"[!] your SSH request went through the bastion without target.\n\r" +
+	"[!] to access a server simply run:\n\r" +
+	"[!]\n\r" +
+	"[!]     ssh BASTION_IP -- SERVER_IP\n\r" +
+	"[!]\n\r" +
+	"[!] this incident has been logged\n\r"
 
 //Client represent a user and all the associated ressources
 type Client struct {
@@ -40,9 +41,11 @@ type Client struct {
 	BackendPort    int
 }
 
+//Command ...TODO
 type Command struct {
 }
 
+//HandshakeSSH ...TODO
 func (client *Client) HandshakeSSH(sshConfig *ssh.ServerConfig) error {
 	// func handshakeSSH(c *net.Conn, sshConfig *ssh.ServerConfig) (*ssh.ServerConn, <-chan ssh.NewChannel, error) {
 	// Before use, a handshake must be performed on the incoming
@@ -53,7 +56,7 @@ func (client *Client) HandshakeSSH(sshConfig *ssh.ServerConfig) error {
 	client.SSHConnexion, client.sshChan, reqs, err = ssh.NewServerConn(client.TCPConnexion, sshConfig)
 
 	if err != nil {
-		log.Print("Failed to handshake: ", err)
+		logger.Warnf("Failed to handshake: ", err)
 		return err
 	}
 
@@ -68,7 +71,7 @@ func (client *Client) HandshakeSSH(sshConfig *ssh.ServerConfig) error {
 	return nil
 }
 
-// func handleSSH(chans <-chan ssh.NewChannel, conn *ssh.ServerConn) {
+//HandleSSHConnexion ...TODO
 func (client *Client) HandleSSHConnexion() error {
 	defer client.SSHConnexion.Close()
 
@@ -83,7 +86,7 @@ func (client *Client) HandleSSHConnexion() error {
 		var err error
 		client.sshCommChan, requests, err = newChannel.Accept()
 		if err != nil {
-			log.Printf("Could not accept channel: %v", err)
+			logger.Warnf("Could not accept channel: %v", err)
 		}
 		defer client.sshCommChan.Close()
 		break
@@ -136,6 +139,7 @@ func (client *Client) HandleSSHConnexion() error {
 	return nil
 }
 
+//DialBackend ...TODO
 func (client *Client) DialBackend() {
 	//The user has already been validated during the ssh handshake and should be good
 	//We use the connecting user to parse its key
@@ -165,6 +169,7 @@ func (client *Client) DialBackend() {
 	}
 }
 
+//RunCommand ...TODO
 func (client *Client) RunCommand(dataStore system.DataStore) error {
 
 	return nil

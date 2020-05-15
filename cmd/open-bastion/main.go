@@ -2,17 +2,16 @@ package main
 
 import (
 	"flag"
-	"fmt"
+	"strconv"
+
 	"github.com/open-bastion/open-bastion/internal/auth"
 	"github.com/open-bastion/open-bastion/internal/client"
 	"github.com/open-bastion/open-bastion/internal/config"
 	"github.com/open-bastion/open-bastion/internal/ingress"
-	"github.com/open-bastion/open-bastion/internal/logs"
+	logger "github.com/open-bastion/open-bastion/internal/logger"
 	"github.com/open-bastion/open-bastion/internal/system"
+	"github.com/rs/zerolog/log"
 	"golang.org/x/crypto/ssh"
-	"log"
-	"os"
-	"strconv"
 )
 
 func main() {
@@ -28,46 +27,33 @@ func main() {
 	err := config.BastionConfig.ParseConfig(*configPath)
 
 	if err != nil {
-		fmt.Printf("Error : " + err.Error())
-		os.Exit(1)
+		log.Fatal().Msgf("error parsing config %v", err)
 	}
 
-	err = logs.Logger.InitLogger(config.BastionConfig.EventsLogFile, config.BastionConfig.SystemLogFile, config.BastionConfig.AsyncEventsLog, config.BastionConfig.AsyncSystemLog)
-
-	if err != nil {
-		fmt.Printf("Error : " + err.Error())
-		os.Exit(1)
-	}
-
-	logs.Logger.StartLogger()
-	defer logs.Logger.StopLogger()
+	logger.InitLogger(config.BastionConfig)
 
 	dataStore, err := system.InitSystemStore(config.BastionConfig)
 
 	if err != nil {
-		fmt.Println("Error : " + err.Error())
-		os.Exit(1)
+		logger.Fatalf("error %v", err)
 	}
 
 	err = auth.ReadAuthorizedKeysFile(config.BastionConfig.AuthorizedKeysFile)
 
 	if err != nil {
-		fmt.Printf("Error : " + err.Error())
-		os.Exit(1)
+		logger.Fatalf("error %v", err)
 	}
 
 	err = sshServer.ConfigSSHServer(auth.AuthorizedKeys, config.BastionConfig.PrivateKeyFile, dataStore)
 
 	if err != nil {
-		fmt.Printf("Error : " + err.Error())
-		os.Exit(1)
+		logger.Fatalf("error %v", err)
 	}
 
 	err = sshServer.ConfigTCPListener(config.BastionConfig.ListenAddress + ":" + strconv.Itoa(config.BastionConfig.ListenPort))
 
 	if err != nil {
-		fmt.Printf("Error : " + err.Error())
-		os.Exit(1)
+		logger.Fatalf("error %v", err)
 	}
 
 	go func(sshConfig *ssh.ServerConfig) {
@@ -77,14 +63,14 @@ func main() {
 			err = c.HandshakeSSH(sshConfig)
 
 			if err != nil {
-				log.Print("Failed to handle the TCP conn: ", err)
+				logger.Warnf("Failed to handle the TCP conn: ", err)
 				continue
 			}
 
 			err = c.HandleSSHConnexion()
 
 			if err != nil {
-				log.Print("Failed to handle the TCP conn: ", err)
+				logger.Warnf("Failed to handle the TCP conn: ", err)
 				continue
 			}
 
@@ -97,7 +83,7 @@ func main() {
 	}(sshServer.SSHServerConfig)
 
 	for {
-		log.Println("Wait for a new connection")
+		logger.Debug("Wait for a new connection")
 		client := new(client.Client)
 
 		client.TCPConnexion, err = sshServer.TCPListener.Accept()
@@ -105,7 +91,7 @@ func main() {
 		//Create new Client struct and pass it around
 
 		if err != nil {
-			log.Printf("failed to accept incoming connection: %v", err)
+			logger.Warnf("failed to accept incoming connection: %v", err)
 			continue
 		}
 
