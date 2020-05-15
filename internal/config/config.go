@@ -22,6 +22,14 @@ type Config struct {
 	AsyncSystemLog      bool   `json:"AsyncSystemLog"`
 	ListenPort          int    `json:"ListenPort"`
 	ListenAddress       string `json:"ListenAddress"`
+	Log                 Log    `json:"Log"`
+}
+
+//Log contains the logger configuration
+type Log struct {
+	IsJSON       bool `json:"IsJson"`
+	Level        int  `json:"Level"`
+	ReportCaller bool `json:"ReportCaller"`
 }
 
 //BastionConfig Hold the global configuration
@@ -164,4 +172,19 @@ func (c *Config) ParseConfig(path string) error {
 	}
 
 	return nil
+}
+
+//IsJSON returns the IsJSON field of the log config
+func (c Config) IsJSON() bool {
+	return c.Log.IsJSON
+}
+
+//Level returns the Level field of the log config
+func (c Config) Level() int {
+	return c.Log.Level
+}
+
+//ReportCaller returns the ReportCaller field of the log config
+func (c Config) ReportCaller() bool {
+	return c.Log.ReportCaller
 }

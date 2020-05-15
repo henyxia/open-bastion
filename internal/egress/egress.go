@@ -2,11 +2,13 @@ package egress
 
 import (
 	"errors"
-	"golang.org/x/crypto/ssh"
 	"io"
-	"log"
 	"strconv"
 	"strings"
+
+	"golang.org/x/crypto/ssh"
+
+	logger "github.com/open-bastion/open-bastion/internal/logger"
 )
 
 // BackendConn contains the informations to establish a connection to a backend
@@ -85,13 +87,13 @@ func DialSSH(channel ssh.Channel, bc BackendConn, signer ssh.Signer) error {
 		return errors.New("Error starting shell : " + err.Error())
 	}
 
-	log.Println("Shell started, waiting command")
+	logger.Debugf("Shell started, waiting command")
 	err = session.Wait()
 	if err != nil {
 		if err, ok := err.(*ssh.ExitError); ok {
-			log.Printf("Command exited with: %v", err)
+			logger.Debugf("Command exited with: %v", err)
 		} else {
-			log.Printf("Failed to start command: %v", err)
+			logger.Debugf("Failed to start command: %v", err)
 		}
 	}
 
