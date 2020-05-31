@@ -11,7 +11,7 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-const SSH_BAD_REQUEST_SHELL = "--- open-bastion ---\n\r" +
+const sshBadRequestShell = "--- open-bastion ---\n\r" +
 	"\n\r" +
 	"[!] error\n\r" +
 	"[!]\n\r" +
@@ -104,7 +104,7 @@ func (client *Client) HandleSSHConnexion() error {
 		} else if req.Type == "shell" {
 			//A shell should not be requested on the bastion
 			//This is here to prevent the connexion to hang with a badly formed payload
-			client.sshCommChan.Write([]byte(SSH_BAD_REQUEST_SHELL))
+			client.sshCommChan.Write([]byte(sshBadRequestShell))
 			return errors.New("bad request type (shell)")
 		}
 	}

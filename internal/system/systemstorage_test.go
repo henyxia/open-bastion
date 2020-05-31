@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestSystemStore_GetUserStatus(t *testing.T) {
+func TestStore_GetUserStatus(t *testing.T) {
 	type fields struct {
 		path string
 	}
@@ -151,7 +151,7 @@ func TestSystemStore_GetUserStatus(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := SystemStore{
+			s := Store{
 				path: tt.fields.path,
 			}
 			got, err := s.GetUserStatus(tt.args.username)
@@ -210,7 +210,7 @@ func Test_isUsernameValid(t *testing.T) {
 	}
 }
 
-func TestSystemStore_GetUserEgressPublicKey(t *testing.T) {
+func TestStore_GetUserEgressPublicKey(t *testing.T) {
 	type fields struct {
 		path string
 	}
@@ -288,7 +288,7 @@ func TestSystemStore_GetUserEgressPublicKey(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := SystemStore{
+			s := Store{
 				path: tt.fields.path,
 			}
 			got, err := s.GetUserEgressPublicKey(tt.args.username)
@@ -301,7 +301,7 @@ func TestSystemStore_GetUserEgressPublicKey(t *testing.T) {
 	os.RemoveAll(tempDir)
 }
 
-func TestSystemStore_GetUserEgressPrivateKey(t *testing.T) {
+func TestStore_GetUserEgressPrivateKey(t *testing.T) {
 	type fields struct {
 		path string
 	}
@@ -379,7 +379,7 @@ func TestSystemStore_GetUserEgressPrivateKey(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := SystemStore{
+			s := Store{
 				path: tt.fields.path,
 			}
 			got, err := s.GetUserEgressPrivateKey(tt.args.username)
@@ -392,7 +392,7 @@ func TestSystemStore_GetUserEgressPrivateKey(t *testing.T) {
 	os.RemoveAll(tempDir)
 }
 
-func TestSystemStore_DeleteUser(t *testing.T) {
+func TestStore_DeleteUser(t *testing.T) {
 	type fields struct {
 		path string
 	}
@@ -460,7 +460,7 @@ func TestSystemStore_DeleteUser(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := SystemStore{
+			s := Store{
 				path: tt.fields.path,
 			}
 
