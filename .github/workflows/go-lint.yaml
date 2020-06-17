@@ -1,0 +1,23 @@
+---
+
+name: Golint linter
+on: pull_request
+env:
+  GOPATH: /home/runner/work/open-bastion/open-bastion/go
+  RUNDIR: $GOPATH/src/github.com/open-bastion/open-bastion
+jobs:
+  golint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: prepare checkout
+        run: mkdir -p $RUNDIR
+      - uses: actions/checkout@v2
+        with:
+          path: /home/runner/work/open-bastion/open-bastion/go/src/github.com/open-bastion/open-bastion
+      - uses: actions/setup-go@v2
+        with:
+          go-version: '^1.14'
+      - name: Install golint
+        run: go get -u golang.org/x/lint/golint
+      - name: Run golint
+        run: find $RUNDIR -iname '*.go' | xargs -L1 golint -set_exit_status
