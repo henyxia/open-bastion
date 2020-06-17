@@ -10,14 +10,14 @@ import (
 	"regexp"
 )
 
-// SystemStore represents the system storage
-type SystemStore struct {
+// Store represents the system storage
+type Store struct {
 	path string
 }
 
-// InitSystemStore return an initialized DataStore
-func InitSystemStore(config config.Config) (SystemStore, error) {
-	var store SystemStore
+// InitStore return an initialized DataStore
+func InitStore(config config.Config) (Store, error) {
+	var store Store
 
 	_, err := os.Stat(config.UserKeysDir)
 
@@ -35,7 +35,7 @@ func InitSystemStore(config config.Config) (SystemStore, error) {
 }
 
 //AddUser add a user to the system and create a private key for him
-func (s SystemStore) AddUser(username string, privateKeyType string) error {
+func (s Store) AddUser(username string, privateKeyType string) error {
 	//Should we validate the username when we parse the input and considere it valid from then on
 	// or should we parse it in this function?
 	if !isUsernameValid(username) {
@@ -79,7 +79,7 @@ func (s SystemStore) AddUser(username string, privateKeyType string) error {
 }
 
 //DeleteUser delete a user if it exists and its associated files
-func (s SystemStore) DeleteUser(username string) error {
+func (s Store) DeleteUser(username string) error {
 	if !isUsernameValid(username) {
 		return errors.New("invalid username")
 	}
@@ -94,7 +94,7 @@ func (s SystemStore) DeleteUser(username string) error {
 }
 
 //GetUserStatus takes a username, validate it and returns the status of the user
-func (s SystemStore) GetUserStatus(username string) (int, error) {
+func (s Store) GetUserStatus(username string) (int, error) {
 	if !isUsernameValid(username) {
 		return Error, errors.New("invalid username")
 	}
@@ -138,7 +138,7 @@ func (s SystemStore) GetUserStatus(username string) (int, error) {
 }
 
 //GetUserEgressPrivateKey return the user's private key as a string
-func (s SystemStore) GetUserEgressPrivateKey(username string) ([]byte, error) {
+func (s Store) GetUserEgressPrivateKey(username string) ([]byte, error) {
 	if !isUsernameValid(username) {
 		return nil, errors.New("invalid username")
 	}
@@ -159,7 +159,7 @@ func (s SystemStore) GetUserEgressPrivateKey(username string) ([]byte, error) {
 }
 
 //GetUserEgressPublicKey return the user's private key as a string
-func (s SystemStore) GetUserEgressPublicKey(username string) ([]byte, error) {
+func (s Store) GetUserEgressPublicKey(username string) ([]byte, error) {
 	if !isUsernameValid(username) {
 		return nil, errors.New("invalid username")
 	}

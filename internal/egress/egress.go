@@ -25,7 +25,7 @@ func DialSSH(channel ssh.Channel, bc BackendConn, signer ssh.Signer) error {
 		return "", nil
 	}
 
-	var authMethods []ssh.AuthMethod = []ssh.AuthMethod{ssh.PasswordCallback(pcb)}
+	var authMethods = []ssh.AuthMethod{ssh.PasswordCallback(pcb)}
 
 	if signer != nil {
 		authMethods = append(authMethods, ssh.PublicKeys(signer))

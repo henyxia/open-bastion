@@ -32,7 +32,7 @@ func main() {
 
 	logger.InitLogger(config.BastionConfig)
 
-	dataStore, err := system.InitSystemStore(config.BastionConfig)
+	dataStore, err := system.InitStore(config.BastionConfig)
 
 	if err != nil {
 		logger.FatalfWithErr(err, "error")
