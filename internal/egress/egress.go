@@ -104,7 +104,7 @@ func DialSSH(channel ssh.Channel, bc BackendConn, signer ssh.Signer) error {
 // a BackendConn struct with the required infos to call DialSSH
 func ParseBackendInfo(payload string) (bc BackendConn, err error) {
 	if len(payload) == 0 || len(payload) > 1024 {
-		return bc, errors.New("Invalid payload")
+		return bc, errors.New("invalid payload")
 	}
 
 	//Remove leading and trailing whitespaces
@@ -113,7 +113,7 @@ func ParseBackendInfo(payload string) (bc BackendConn, err error) {
 	command := strings.Split(payload, " ")
 
 	if command == nil || len(command) < 2 {
-		return bc, errors.New("Invalid payload")
+		return bc, errors.New("invalid payload")
 	}
 
 	c := command[0]
@@ -136,24 +136,24 @@ func ParseBackendInfo(payload string) (bc BackendConn, err error) {
 				port, err := strconv.Atoi(command[i+1])
 
 				if err != nil {
-					return bc, errors.New("Invalid port option")
+					return bc, errors.New("invalid port option")
 				}
 
 				if port > 65535 || port < 0 {
-					return bc, errors.New("Invalid port option")
+					return bc, errors.New("invalid port option")
 				}
 
 				bc.Port = port
 				//Don't go over the next parameter as it already as been read
 				i = i + 1
 			} else {
-				return bc, errors.New("Invalid port option")
+				return bc, errors.New("invalid port option")
 			}
 		} else {
 			arr := strings.Split(command[i], `@`)
 
 			if len(arr) == 0 {
-				return bc, errors.New("Could not parse destination")
+				return bc, errors.New("could not parse destination")
 			}
 
 			if len(arr) == 1 {
@@ -168,7 +168,7 @@ func ParseBackendInfo(payload string) (bc BackendConn, err error) {
 			}
 
 			if len(arr) > 2 {
-				return bc, errors.New("Could not parse destination")
+				return bc, errors.New("could not parse destination")
 			}
 		}
 	}
@@ -178,7 +178,7 @@ func ParseBackendInfo(payload string) (bc BackendConn, err error) {
 	}
 
 	if bc.Host == "" {
-		return bc, errors.New("Could not parse backend parameters")
+		return bc, errors.New("could not parse backend parameters")
 	}
 
 	return bc, nil

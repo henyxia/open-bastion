@@ -114,7 +114,7 @@ func (c *Config) ParseConfig(path string) error {
 	}
 
 	if !json.Valid(byteContent) {
-		return errors.New("The configuration file is not a valid JSON file")
+		return errors.New("configuration file is not a valid JSON file")
 	}
 
 	//By default, object keys which don't have a corresponding struct field are ignored
@@ -125,17 +125,17 @@ func (c *Config) ParseConfig(path string) error {
 	}
 
 	if c.PermitPasswordLogin == false && c.PermitKeyLogin == false {
-		return errors.New("No authorized login method")
+		return errors.New("no authorized login method")
 	}
 
 	if c.ListenPort == 0 {
 		c.ListenPort = defaultSSHPort
 	} else if c.ListenPort > 65535 || c.ListenPort < 0 {
-		return errors.New("Invalid port configuration")
+		return errors.New("invalid port configuration")
 	}
 
 	if net.ParseIP(c.ListenAddress) == nil {
-		return errors.New("Invalid IP address configuration")
+		return errors.New("invalid IP address configuration")
 	}
 
 	if c.PrivateKeyFile == "" {
@@ -144,7 +144,7 @@ func (c *Config) ParseConfig(path string) error {
 		_, err := os.Stat(c.PrivateKeyFile)
 
 		if err != nil {
-			return errors.New("Private key file : invalid path")
+			return errors.New("invalid private key file path")
 		}
 	}
 
@@ -154,7 +154,7 @@ func (c *Config) ParseConfig(path string) error {
 		_, err := os.Stat(c.AuthorizedKeysFile)
 
 		if err != nil {
-			return errors.New("Authorized keys file : invalid path")
+			return errors.New("invalid authorized_keys file path")
 		}
 	}
 

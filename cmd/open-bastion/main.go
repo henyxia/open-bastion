@@ -27,7 +27,7 @@ func main() {
 	err := config.BastionConfig.ParseConfig(*configPath)
 
 	if err != nil {
-		log.Fatal().Msgf("error parsing config %v", err)
+		log.Fatal().Err(err).Msgf("error parsing configuration file")
 	}
 
 	logger.InitLogger(config.BastionConfig)
@@ -35,25 +35,25 @@ func main() {
 	dataStore, err := system.InitSystemStore(config.BastionConfig)
 
 	if err != nil {
-		logger.Fatalf("error %v", err)
+		logger.FatalfWithErr(err, "error")
 	}
 
 	err = auth.ReadAuthorizedKeysFile(config.BastionConfig.AuthorizedKeysFile)
 
 	if err != nil {
-		logger.Fatalf("error %v", err)
+		logger.FatalfWithErr(err, "error")
 	}
 
 	err = sshServer.ConfigSSHServer(auth.AuthorizedKeys, config.BastionConfig.PrivateKeyFile, dataStore)
 
 	if err != nil {
-		logger.Fatalf("error %v", err)
+		logger.FatalfWithErr(err, "error")
 	}
 
 	err = sshServer.ConfigTCPListener(config.BastionConfig.ListenAddress + ":" + strconv.Itoa(config.BastionConfig.ListenPort))
 
 	if err != nil {
-		logger.Fatalf("error %v", err)
+		logger.FatalfWithErr(err, "error")
 	}
 
 	go func(sshConfig *ssh.ServerConfig) {
@@ -63,14 +63,14 @@ func main() {
 			err = c.HandshakeSSH(sshConfig)
 
 			if err != nil {
-				logger.Warnf("Failed to handle the TCP conn: ", err)
+				logger.WarnWithErr(err, "failed to handle the TCP connection")
 				continue
 			}
 
 			err = c.HandleSSHConnexion()
 
 			if err != nil {
-				logger.Warnf("Failed to handle the TCP conn: ", err)
+				logger.WarnWithErr(err, "failed to handle the TCP connection")
 				continue
 			}
 
@@ -83,7 +83,7 @@ func main() {
 	}(sshServer.SSHServerConfig)
 
 	for {
-		logger.Debug("Wait for a new connection")
+		logger.Debug("waiting for a new connection")
 		client := new(client.Client)
 
 		client.TCPConnexion, err = sshServer.TCPListener.Accept()
@@ -91,7 +91,7 @@ func main() {
 		//Create new Client struct and pass it around
 
 		if err != nil {
-			logger.Warnf("failed to accept incoming connection: %v", err)
+			logger.WarnfWithErr(err, "failed to accept incoming connection")
 			continue
 		}
 

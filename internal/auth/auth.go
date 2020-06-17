@@ -50,12 +50,12 @@ func ParseUserPrivateKey(user string) (ssh.Signer, error) {
 
 	privateKeyBytes, err := ioutil.ReadFile(path + user)
 	if err != nil {
-		return nil, errors.New("User " + user + ": Failed to load private key : " + err.Error())
+		return nil, errors.New("user " + user + " failed to load private key : " + err.Error())
 	}
 
 	privateSigner, err := ssh.ParsePrivateKey(privateKeyBytes)
 	if err != nil {
-		return nil, errors.New("User " + user + ": Failed to parse private key : " + err.Error())
+		return nil, errors.New("user " + user + ": failed to parse private key : " + err.Error())
 	}
 
 	return privateSigner, nil

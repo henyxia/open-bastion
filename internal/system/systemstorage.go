@@ -25,7 +25,7 @@ func InitSystemStore(config config.Config) (SystemStore, error) {
 		err := os.MkdirAll(config.UserKeysDir, 0600)
 
 		if err != nil {
-			return SystemStore{}, errors.New("error, cannot create data store")
+			return SystemStore{}, errors.New("cannot create data store")
 		}
 	}
 
@@ -39,7 +39,7 @@ func (s SystemStore) AddUser(username string, privateKeyType string) error {
 	//Should we validate the username when we parse the input and considere it valid from then on
 	// or should we parse it in this function?
 	if !isUsernameValid(username) {
-		return errors.New("error, invalid username")
+		return errors.New("invalid username")
 	}
 
 	us, err := s.GetUserStatus(username)
@@ -49,7 +49,7 @@ func (s SystemStore) AddUser(username string, privateKeyType string) error {
 	}
 
 	if us != Invalid {
-		return errors.New("User " + username + " already exists")
+		return errors.New("user " + username + " already exists")
 	}
 
 	userKeyPath := s.path + username + "/egress-keys/" + username
@@ -62,7 +62,7 @@ func (s SystemStore) AddUser(username string, privateKeyType string) error {
 		cmd := exec.Command("ssh-keygen", "-t", "rsa", "-b", "4096", "-f", userKeyPath)
 		err = cmd.Run()
 	} else {
-		return errors.New("Unknown key type")
+		return errors.New("unknown key type")
 	}
 
 	if err != nil {
@@ -81,7 +81,7 @@ func (s SystemStore) AddUser(username string, privateKeyType string) error {
 //DeleteUser delete a user if it exists and its associated files
 func (s SystemStore) DeleteUser(username string) error {
 	if !isUsernameValid(username) {
-		return errors.New("error, invalid username")
+		return errors.New("invalid username")
 	}
 
 	err := os.RemoveAll(s.path + "/" + username + "/")
@@ -96,7 +96,7 @@ func (s SystemStore) DeleteUser(username string) error {
 //GetUserStatus takes a username, validate it and returns the status of the user
 func (s SystemStore) GetUserStatus(username string) (int, error) {
 	if !isUsernameValid(username) {
-		return Error, errors.New("error, invalid username")
+		return Error, errors.New("invalid username")
 	}
 
 	userDir := s.path + "/" + username + "/"
@@ -117,7 +117,7 @@ func (s SystemStore) GetUserStatus(username string) (int, error) {
 		}
 
 		if !json.Valid(byteContent) {
-			return Error, errors.New("The configuration file is not a valid JSON file")
+			return Error, errors.New("configuration file is not a valid JSON file")
 		}
 
 		var ui UserInfo
@@ -134,25 +134,25 @@ func (s SystemStore) GetUserStatus(username string) (int, error) {
 		return Inactive, nil
 	}
 
-	return Error, errors.New("User does not exist")
+	return Error, errors.New("user does not exist")
 }
 
 //GetUserEgressPrivateKey return the user's private key as a string
 func (s SystemStore) GetUserEgressPrivateKey(username string) ([]byte, error) {
 	if !isUsernameValid(username) {
-		return nil, errors.New("error, invalid username")
+		return nil, errors.New("invalid username")
 	}
 	//TODO validate key
 	f, err := os.Open(s.path + "/" + username + "/egress-keys/" + username)
 
 	if err != nil {
-		return nil, errors.New("error reading key")
+		return nil, errors.New("cannot read key")
 	}
 
 	key, err := ioutil.ReadAll(f)
 
 	if err != nil {
-		return nil, errors.New("error reading key")
+		return nil, errors.New("read key")
 	}
 
 	return key, nil
@@ -161,19 +161,19 @@ func (s SystemStore) GetUserEgressPrivateKey(username string) ([]byte, error) {
 //GetUserEgressPublicKey return the user's private key as a string
 func (s SystemStore) GetUserEgressPublicKey(username string) ([]byte, error) {
 	if !isUsernameValid(username) {
-		return nil, errors.New("error, invalid username")
+		return nil, errors.New("invalid username")
 	}
 	//TODO validate key
 	f, err := os.Open(s.path + "/" + username + "/egress-keys/" + username + ".pub")
 
 	if err != nil {
-		return nil, errors.New("error reading key")
+		return nil, errors.New("cannot read key")
 	}
 
 	key, err := ioutil.ReadAll(f)
 
 	if err != nil {
-		return nil, errors.New("error reading key")
+		return nil, errors.New("cannot read key")
 	}
 
 	return key, nil
