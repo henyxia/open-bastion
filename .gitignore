@@ -1,0 +1,9 @@
+# Various IDEs configs
+.idea/
+.vscode/
+
+#Executable
+open-bastion
+
+# Test binary, built with `go test -c`
+*.test

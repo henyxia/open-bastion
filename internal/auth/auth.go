@@ -1,10 +1,9 @@
 package auth
 
 import (
-	"errors"
-	"github.com/open-bastion/open-bastion/internal/config"
+	"bufio"
+	logger "github.com/open-bastion/open-bastion/internal/logger"
 	"golang.org/x/crypto/ssh"
-	"io/ioutil"
 	"os"
 )
 
@@ -22,41 +21,24 @@ func (ak *Auth) ReadAuthorizedKeysFile(path string) (err error) {
 		return err
 	}
 
-	byteContent, err := ioutil.ReadAll(f)
-	f.Close()
+	line := 1
+	//TODO check if there is a line length limitation for the scanner
+	scanner := bufio.NewScanner(f)
 
-	if err != nil {
+	for scanner.Scan() {
+		pubKey, _, _, _, err := ssh.ParseAuthorizedKey(scanner.Bytes())
+		if err != nil {
+			logger.WarnfWithErr(err, "error reading key line %v", line)
+		} else {
+			ak.AuthorizedKeys[string(pubKey.Marshal())] = true
+		}
+
+		line++
+	}
+
+	if err := scanner.Err(); err != nil {
 		return err
 	}
 
-	for len(byteContent) > 0 {
-		pubKey, _, _, rest, err := ssh.ParseAuthorizedKey(byteContent)
-		if err != nil {
-			return err
-		}
-
-		ak.AuthorizedKeys[string(pubKey.Marshal())] = true
-		byteContent = rest
-	}
 	return nil
-}
-
-// ParseUserPrivateKey takes the user and path of the keys directory and try to
-// parse /var/lib/open-bastion/users/[user]/egress-keys/[user]
-// Returns a signer if successful, an error otherwise
-func ParseUserPrivateKey(user string) (ssh.Signer, error) {
-	//The user should be valid as the handshake has already been validated by the bastion
-	path := config.BastionConfig.UserKeysDir + user + "/egress-keys/"
-
-	privateKeyBytes, err := ioutil.ReadFile(path + user)
-	if err != nil {
-		return nil, errors.New("User " + user + ": Failed to load private key : " + err.Error())
-	}
-
-	privateSigner, err := ssh.ParsePrivateKey(privateKeyBytes)
-	if err != nil {
-		return nil, errors.New("User " + user + ": Failed to parse private key : " + err.Error())
-	}
-
-	return privateSigner, nil
 }

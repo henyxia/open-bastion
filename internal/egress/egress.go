@@ -34,14 +34,14 @@ func DialSSH(channel ssh.Channel, bc BackendConn, signer ssh.Signer) error {
 	config := &ssh.ClientConfig{
 		User: bc.User,
 		Auth: authMethods,
-		//This should be replaced by HostKeyCallBack and use a mecanism to
+		//This should be replaced by HostKeyCallBack and use a mechanism to
 		//verify the backend host key
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 	}
 
 	sshConn, err := ssh.Dial("tcp", bc.Host+":"+strconv.Itoa(bc.Port), config)
 	if err != nil {
-		return errors.New("Error dialing backend : " + err.Error())
+		return errors.New("error dialing backend : " + err.Error())
 	}
 	defer sshConn.Close()
 
@@ -59,7 +59,7 @@ func DialSSH(channel ssh.Channel, bc BackendConn, signer ssh.Signer) error {
 	}
 
 	go func() {
-		copy(stdin, channel, nil)
+		_, _ = copy(stdin, channel, nil)
 	}()
 
 	stdout, err := session.StdoutPipe()
@@ -68,7 +68,7 @@ func DialSSH(channel ssh.Channel, bc BackendConn, signer ssh.Signer) error {
 	}
 
 	go func() {
-		copy(channel, stdout, nil)
+		_, _ = copy(channel, stdout, nil)
 	}()
 
 	// Set up terminal modes
@@ -79,7 +79,7 @@ func DialSSH(channel ssh.Channel, bc BackendConn, signer ssh.Signer) error {
 
 	// Request pseudo terminal
 	if err := session.RequestPty("xterm", 80, 40, modes); err != nil {
-		return errors.New("Error requesting pseudo terminal : " + err.Error())
+		return errors.New("error requesting pseudo terminal : " + err.Error())
 	}
 
 	// Start remote shell
@@ -87,13 +87,13 @@ func DialSSH(channel ssh.Channel, bc BackendConn, signer ssh.Signer) error {
 		return errors.New("Error starting shell : " + err.Error())
 	}
 
-	logger.Debugf("Shell started, waiting command")
+	logger.Debugf("shell started, waiting command")
 	err = session.Wait()
 	if err != nil {
 		if err, ok := err.(*ssh.ExitError); ok {
-			logger.Debugf("Command exited with: %v", err)
+			logger.Debugf("command exited with: %v", err)
 		} else {
-			logger.Debugf("Failed to start command: %v", err)
+			logger.Debugf("failed to start command: %v", err)
 		}
 	}
 
@@ -102,10 +102,10 @@ func DialSSH(channel ssh.Channel, bc BackendConn, signer ssh.Signer) error {
 
 // ParseBackendInfo takes a string containing our payload command and returns
 // a BackendConn struct with the required infos to call DialSSH
-func ParseBackendInfo(payload string) (bc BackendConn, err error) {
-	if len(payload) == 0 || len(payload) > 1024 {
-		return bc, errors.New("Invalid payload")
-	}
+func ParseBackendInfo(rawPayload []byte) (bc BackendConn, err error) {
+	//Size of the payload has already been checked
+	//TODO check if string corruption validator is necessary
+	payload := string(rawPayload)
 
 	//Remove leading and trailing whitespaces
 	payload = strings.TrimSpace(payload)
@@ -113,7 +113,7 @@ func ParseBackendInfo(payload string) (bc BackendConn, err error) {
 	command := strings.Split(payload, " ")
 
 	if command == nil || len(command) < 2 {
-		return bc, errors.New("Invalid payload")
+		return bc, errors.New("invalid payload")
 	}
 
 	c := command[0]
@@ -136,24 +136,24 @@ func ParseBackendInfo(payload string) (bc BackendConn, err error) {
 				port, err := strconv.Atoi(command[i+1])
 
 				if err != nil {
-					return bc, errors.New("Invalid port option")
+					return bc, errors.New("invalid port option")
 				}
 
 				if port > 65535 || port < 0 {
-					return bc, errors.New("Invalid port option")
+					return bc, errors.New("invalid port option")
 				}
 
 				bc.Port = port
 				//Don't go over the next parameter as it already as been read
 				i = i + 1
 			} else {
-				return bc, errors.New("Invalid port option")
+				return bc, errors.New("invalid port option")
 			}
 		} else {
 			arr := strings.Split(command[i], `@`)
 
 			if len(arr) == 0 {
-				return bc, errors.New("Could not parse destination")
+				return bc, errors.New("could not parse destination")
 			}
 
 			if len(arr) == 1 {
@@ -168,7 +168,7 @@ func ParseBackendInfo(payload string) (bc BackendConn, err error) {
 			}
 
 			if len(arr) > 2 {
-				return bc, errors.New("Could not parse destination")
+				return bc, errors.New("could not parse destination")
 			}
 		}
 	}
@@ -178,7 +178,7 @@ func ParseBackendInfo(payload string) (bc BackendConn, err error) {
 	}
 
 	if bc.Host == "" {
-		return bc, errors.New("Could not parse backend parameters")
+		return bc, errors.New("could not parse backend parameters")
 	}
 
 	return bc, nil

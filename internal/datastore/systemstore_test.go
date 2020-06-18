@@ -1,4 +1,4 @@
-package system
+package datastore
 
 import (
 	"io/ioutil"
@@ -151,7 +151,7 @@ func TestStore_GetUserStatus(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := Store{
+			s := SystemStore{
 				path: tt.fields.path,
 			}
 			got, err := s.GetUserStatus(tt.args.username)
@@ -288,10 +288,10 @@ func TestStore_GetUserEgressPublicKey(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := Store{
+			s := SystemStore{
 				path: tt.fields.path,
 			}
-			got, err := s.GetUserEgressPublicKey(tt.args.username)
+			got, err := s.GetRawUserEgressPublicKey(tt.args.username)
 
 			assert.Equal(t, tt.want, got)
 			assert.Equal(t, tt.wantErr, err != nil)
@@ -379,10 +379,10 @@ func TestStore_GetUserEgressPrivateKey(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := Store{
+			s := SystemStore{
 				path: tt.fields.path,
 			}
-			got, err := s.GetUserEgressPrivateKey(tt.args.username)
+			got, err := s.GetRawUserEgressPrivateKey(tt.args.username)
 
 			assert.Equal(t, tt.want, got)
 			assert.Equal(t, tt.wantErr, err != nil)
@@ -460,7 +460,7 @@ func TestStore_DeleteUser(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := Store{
+			s := SystemStore{
 				path: tt.fields.path,
 			}
 
