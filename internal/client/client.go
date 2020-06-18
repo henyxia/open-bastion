@@ -1,13 +1,12 @@
 package client
 
 import (
+	"bytes"
 	"errors"
 	"net"
 
-	"github.com/open-bastion/open-bastion/internal/auth"
 	"github.com/open-bastion/open-bastion/internal/egress"
 	logger "github.com/open-bastion/open-bastion/internal/logger"
-	"github.com/open-bastion/open-bastion/internal/system"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -28,11 +27,11 @@ type Client struct {
 
 	SSHConnexion *ssh.ServerConn
 	sshChan      <-chan ssh.NewChannel
-	sshCommChan  ssh.Channel
+	SshCommChan  ssh.Channel
 
 	User       string
 	SSHKey     ssh.Signer
-	RawCommand string
+	RawCommand []byte
 	Protocol   string
 
 	BackendCommand string
@@ -56,7 +55,6 @@ func (client *Client) HandshakeSSH(sshConfig *ssh.ServerConfig) error {
 	client.SSHConnexion, client.sshChan, reqs, err = ssh.NewServerConn(client.TCPConnexion, sshConfig)
 
 	if err != nil {
-		logger.Warnf("Failed to handshake: ", err)
 		return err
 	}
 
@@ -71,24 +69,22 @@ func (client *Client) HandshakeSSH(sshConfig *ssh.ServerConfig) error {
 	return nil
 }
 
-//HandleSSHConnexion ...TODO
-func (client *Client) HandleSSHConnexion() error {
-	defer client.SSHConnexion.Close()
-
+//HandleSSHConnection ...TODO
+func (client *Client) HandleSSHConnection() error {
 	var requests <-chan *ssh.Request
 	// Service the incoming Channel channel.
 	for newChannel := range client.sshChan {
 		if newChannel.ChannelType() != "session" {
-			newChannel.Reject(ssh.UnknownChannelType, "unknown channel type")
+			_ = newChannel.Reject(ssh.UnknownChannelType, "unknown channel type")
 			continue
 		}
 
 		var err error
-		client.sshCommChan, requests, err = newChannel.Accept()
+		client.SshCommChan, requests, err = newChannel.Accept()
 		if err != nil {
-			logger.Warnf("Could not accept channel: %v", err)
+			logger.WarnWithErr(err, "could not accept channel")
 		}
-		defer client.sshCommChan.Close()
+
 		break
 	}
 
@@ -99,17 +95,17 @@ func (client *Client) HandleSSHConnexion() error {
 			//We limit the command to 512 bytes to avoid attacks
 			raw := make([]byte, 512)
 			copy(raw, req.Payload[4:])
-			client.RawCommand = string(raw)
+			client.RawCommand = bytes.Trim(raw, "\x00")
 			break
 		} else if req.Type == "shell" {
 			//A shell should not be requested on the bastion
 			//This is here to prevent the connexion to hang with a badly formed payload
-			client.sshCommChan.Write([]byte(sshBadRequestShell))
+			_, _ = client.SshCommChan.Write([]byte(sshBadRequestShell))
 			return errors.New("bad request type (shell)")
 		}
 	}
 
-	if client.RawCommand != "" {
+	if len(client.RawCommand) > 0 {
 		bc, err := egress.ParseBackendInfo(client.RawCommand)
 
 		//TODO return the correct thing, I was just too lazy to change is for now
@@ -120,7 +116,7 @@ func (client *Client) HandleSSHConnexion() error {
 
 		if err != nil {
 			errStr := "Unable to parse target : " + err.Error() + "\n"
-			client.sshCommChan.Write([]byte(errStr))
+			_, _ = client.SshCommChan.Write([]byte(errStr))
 			return errors.New("invalid payload")
 		}
 
@@ -132,7 +128,7 @@ func (client *Client) HandleSSHConnexion() error {
 		}
 
 	} else {
-		client.sshCommChan.Write([]byte("Error : Invalid payload\n"))
+		_, _ = client.SshCommChan.Write([]byte("Error : Invalid payload\n"))
 		return errors.New("invalid payload")
 	}
 
@@ -140,19 +136,7 @@ func (client *Client) HandleSSHConnexion() error {
 }
 
 //DialBackend ...TODO
-func (client *Client) DialBackend() {
-	//The user has already been validated during the ssh handshake and should be good
-	//We use the connecting user to parse its key
-	var err error
-
-	client.SSHKey, err = auth.ParseUserPrivateKey(client.User)
-
-	if err != nil {
-		errStr := "Error : " + err.Error() + "\n"
-		client.sshCommChan.Write([]byte(errStr))
-		return
-	}
-
+func (client *Client) DialBackend() error {
 	bc := egress.BackendConn{
 		Command: client.BackendCommand,
 		User:    client.BackendUser,
@@ -161,16 +145,19 @@ func (client *Client) DialBackend() {
 	}
 
 	// jump to new connection
-	err = egress.DialSSH(client.sshCommChan, bc, client.SSHKey)
+	err := egress.DialSSH(client.SshCommChan, bc, client.SSHKey)
 
 	if err != nil {
 		errStr := "Error : " + err.Error() + "\n"
-		client.sshCommChan.Write([]byte(errStr))
+		_, _ = client.SshCommChan.Write([]byte(errStr))
+		return err
 	}
+
+	return nil
 }
 
 //RunCommand ...TODO
-func (client *Client) RunCommand(dataStore system.DataStore) error {
+func (client *Client) RunCommand() error {
 
 	return nil
 }

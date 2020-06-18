@@ -5,11 +5,11 @@ import (
 	"strconv"
 
 	"github.com/open-bastion/open-bastion/internal/auth"
-	"github.com/open-bastion/open-bastion/internal/client"
+	obclient "github.com/open-bastion/open-bastion/internal/client"
 	"github.com/open-bastion/open-bastion/internal/config"
+	"github.com/open-bastion/open-bastion/internal/datastore"
 	"github.com/open-bastion/open-bastion/internal/ingress"
 	logger "github.com/open-bastion/open-bastion/internal/logger"
-	"github.com/open-bastion/open-bastion/internal/system"
 	"github.com/rs/zerolog/log"
 	"golang.org/x/crypto/ssh"
 )
@@ -20,81 +20,104 @@ func main() {
 	flag.Parse()
 
 	var sshServer ingress.Ingress
-	var auth auth.Auth
-	clientChannel := make(chan *client.Client)
-	defer close(clientChannel)
+	var authInfo auth.Auth
 
-	err := config.BastionConfig.ParseConfig(*configPath)
+	bastionConfig, err := config.ParseConfig(*configPath)
 
 	if err != nil {
-		log.Fatal().Msgf("error parsing config %v", err)
+		log.Fatal().Err(err).Msgf("error parsing configuration file")
 	}
 
-	logger.InitLogger(config.BastionConfig)
+	logger.InitLogger(bastionConfig)
+	logger.Info("logger initialized")
 
-	dataStore, err := system.InitStore(config.BastionConfig)
+	dataStore, err := datastore.InitStore(bastionConfig)
 
 	if err != nil {
-		logger.Fatalf("error %v", err)
+		logger.FatalfWithErr(err, "error")
 	}
+	logger.Infof("data store initialized, using: %v", dataStore.GetType())
 
-	err = auth.ReadAuthorizedKeysFile(config.BastionConfig.AuthorizedKeysFile)
+	err = authInfo.ReadAuthorizedKeysFile(bastionConfig.AuthorizedKeysFile)
 
 	if err != nil {
-		logger.Fatalf("error %v", err)
+		logger.FatalfWithErr(err, "error reading authorized_keys file")
 	}
+	logger.Info("authorized_keys parsed")
 
-	err = sshServer.ConfigSSHServer(auth.AuthorizedKeys, config.BastionConfig.PrivateKeyFile, dataStore)
+	err = sshServer.ConfigSSHServer(authInfo.AuthorizedKeys, bastionConfig.PrivateKeyFile, dataStore)
 
 	if err != nil {
-		logger.Fatalf("error %v", err)
+		logger.FatalfWithErr(err, "error")
 	}
 
-	err = sshServer.ConfigTCPListener(config.BastionConfig.ListenAddress + ":" + strconv.Itoa(config.BastionConfig.ListenPort))
+	err = sshServer.ConfigTCPListener(bastionConfig.ListenAddress + ":" + strconv.Itoa(bastionConfig.ListenPort))
 
 	if err != nil {
-		logger.Fatalf("error %v", err)
+		logger.FatalfWithErr(err, "error")
 	}
+	logger.Info("server configured")
 
-	go func(sshConfig *ssh.ServerConfig) {
-		for {
-			c := <-clientChannel
+	listenAndServe(&sshServer, dataStore)
+}
 
-			err = c.HandshakeSSH(sshConfig)
-
-			if err != nil {
-				logger.Warnf("Failed to handle the TCP conn: ", err)
-				continue
-			}
-
-			err = c.HandleSSHConnexion()
-
-			if err != nil {
-				logger.Warnf("Failed to handle the TCP conn: ", err)
-				continue
-			}
-
-			if c.BackendCommand == "bastion" {
-				go c.RunCommand(dataStore)
-			} else {
-				go c.DialBackend()
-			}
-		}
-	}(sshServer.SSHServerConfig)
-
+func listenAndServe(sshServer *ingress.Ingress, dataStore datastore.DataStore) {
+	logger.Info("listening for new connections...")
 	for {
-		logger.Debug("Wait for a new connection")
-		client := new(client.Client)
+		logger.Debug("waiting for a new connection...")
+		client := new(obclient.Client)
+		var err error
 
 		client.TCPConnexion, err = sshServer.TCPListener.Accept()
 
-		//Create new Client struct and pass it around
-
 		if err != nil {
-			logger.Warnf("failed to accept incoming connection: %v", err)
+			logger.WarnWithErr(err, "failed to handle the TCP connection")
 			continue
 		}
 
-		clientChannel <- client
+		go func(c *obclient.Client, sshConfig *ssh.ServerConfig, dataStore datastore.DataStore) {
+			err := c.HandshakeSSH(sshConfig)
+
+			if err != nil {
+				logger.WarnWithErr(err, "failed to handshake")
+				return
+			}
+
+			err = c.HandleSSHConnection()
+			defer func() {
+				if err := c.SshCommChan.Close(); err != nil {
+					logger.WarnWithErr(err, "error closing the client communication channel")
+				}
+
+				if err := c.SSHConnexion.Close(); err != nil {
+					logger.WarnWithErr(err, "error closing the SSH connection")
+				}
+			}()
+
+			if err != nil {
+				logger.WarnWithErr(err, "failed to handle the TCP connection")
+				return
+			}
+
+			if c.BackendCommand == "bastion" {
+				_ = c.RunCommand()
+			} else {
+				//The user has already been validated during the ssh handshake and should be good
+				//We use the connecting user to parse its key
+				c.SSHKey, err = dataStore.GetUserEgressPrivateKeySigner(client.User)
+
+				if err != nil {
+					_, _ = c.SshCommChan.Write([]byte("error accessing credentials"))
+
+					logger.ErrorWithErr(err, "authenticated user could not access his eggress private key")
+				}
+
+				err = c.DialBackend()
+
+				if err != nil {
+					logger.WarnWithErr(err, "error dialing backend")
+				}
+			}
+		}(client, sshServer.SSHServerConfig, dataStore)
 	}
 }
