@@ -8,8 +8,8 @@ import (
 	"os"
 )
 
-// Config struct contains the server configuration
-type Config struct {
+// config struct contains the server configuration
+type config struct {
 	PermitPasswordLogin bool   `json:"PermitPasswordLogin"`
 	PermitKeyLogin      bool   `json:"PermitKeyLogin"`
 	PermitRootLogin     bool   `json:"PermitRootLogin"`
@@ -33,12 +33,12 @@ type Log struct {
 }
 
 //BastionConfig Hold the global configuration
-var BastionConfig Config
+var BastionConfig config
 
 // ParseConfig try to open and parse the file at the specified path.
 // If the path is invalid or empty, the function will try to find a config file
 // at the default locations.
-func (c *Config) ParseConfig(path string) error {
+func (c *config) ParseConfig(path string) error {
 	if _, err := os.Stat("/var/lib/open-bastion/users/"); os.IsNotExist(err) {
 		os.MkdirAll("/var/lib/open-bastion/users/", 0660)
 	}
@@ -54,7 +54,7 @@ func (c *Config) ParseConfig(path string) error {
 	}
 
 	// Default values if no configuration is provided for them
-	defaultConfigPaths := []string{
+	defaultconfigPaths := []string{
 		"/etc/open-bastion/open-bastion-conf.json",
 		home + "/.config/open-bastion/open-bastion-conf.json",
 		home + "/.config/open-bastion-conf.json",
@@ -85,7 +85,7 @@ func (c *Config) ParseConfig(path string) error {
 	}
 
 	if configPath == "" {
-		for _, p := range defaultConfigPaths {
+		for _, p := range defaultconfigPaths {
 			_, err := os.Stat(p)
 
 			if err == nil {
@@ -175,16 +175,16 @@ func (c *Config) ParseConfig(path string) error {
 }
 
 //IsJSON returns the IsJSON field of the log config
-func (c Config) IsJSON() bool {
+func (c config) IsJSON() bool {
 	return c.Log.IsJSON
 }
 
 //Level returns the Level field of the log config
-func (c Config) Level() int {
+func (c config) Level() int {
 	return c.Log.Level
 }
 
 //ReportCaller returns the ReportCaller field of the log config
-func (c Config) ReportCaller() bool {
+func (c config) ReportCaller() bool {
 	return c.Log.ReportCaller
 }
