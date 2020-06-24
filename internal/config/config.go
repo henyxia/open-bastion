@@ -9,6 +9,13 @@ import (
 	"os"
 )
 
+const (
+	DefaultUsersDirectory = "/var/lib/open-bastion/users/"
+	DefaultLogsDirectory  = "/var/log/open-bastion/"
+
+	DefaultStorage = "system"
+)
+
 // Config struct contains the server configuration
 type Config struct {
 	PermitPasswordLogin bool   `json:"PermitPasswordLogin"`
@@ -54,35 +61,10 @@ func ParseConfig(path string) (Config, error) {
 	defaultAuthorizedKeys := home + "/.ssh/authorized_keys"
 	defaultSSHPort := 22
 
-	defaultUserKeysDirectory := "/var/lib/open-bastion/users/"
+	configPath, err := validateConfigPath(path, defaultConfigPaths)
 
-	defaultLogDirectory := "/var/log/open-bastion/"
-
-	configPath := ""
-
-	if path != "" {
-		_, err := os.Stat(path)
-
-		if err != nil {
-			logger.Warn("provided configuration file does not exist, using default path")
-		} else {
-			configPath = path
-		}
-	}
-
-	if configPath == "" {
-		for _, p := range defaultConfigPaths {
-			_, err := os.Stat(p)
-
-			if err == nil {
-				configPath = p
-				break
-			}
-		}
-	}
-
-	if configPath == "" {
-		return Config{}, errors.New("could not open any configuration file")
+	if err != nil {
+		return Config{}, err
 	}
 
 	f, err := os.Open(configPath)
@@ -99,6 +81,7 @@ func ParseConfig(path string) (Config, error) {
 
 	err = f.Close()
 
+	//TODO should we still proceed if we cannot close the config file?
 	logger.WarnWithErr(err, "could not close config file")
 
 	if err != nil {
@@ -151,11 +134,11 @@ func ParseConfig(path string) (Config, error) {
 	}
 
 	if c.UserKeysDir == "" {
-		c.UserKeysDir = defaultUserKeysDirectory
+		c.UserKeysDir = DefaultUsersDirectory
 
-		logger.Warnf("no user keys directory provided, creating and using default directory %v", defaultUserKeysDirectory)
-		if _, err := os.Stat("/var/lib/open-bastion/users/"); os.IsNotExist(err) {
-			err = os.MkdirAll("/var/lib/open-bastion/users/", 0660)
+		logger.Warnf("no user keys directory provided, creating and using default directory %v", DefaultUsersDirectory)
+		if _, err := os.Stat(DefaultUsersDirectory); os.IsNotExist(err) {
+			err = os.MkdirAll(DefaultUsersDirectory, 0660)
 
 			if err != nil {
 				return Config{}, err
@@ -164,11 +147,11 @@ func ParseConfig(path string) (Config, error) {
 	}
 
 	if c.Log.Path == "" {
-		c.Log.Path = defaultLogDirectory
+		c.Log.Path = DefaultLogsDirectory
 
-		logger.Warnf("no logs directory provided, creating and using default directory %v", defaultLogDirectory)
-		if _, err := os.Stat("/var/log/open-bastion/"); os.IsNotExist(err) {
-			err = os.MkdirAll("/var/log/open-bastion/", 0660)
+		logger.Warnf("no logs directory provided, creating and using default directory %v", DefaultLogsDirectory)
+		if _, err := os.Stat(DefaultLogsDirectory); os.IsNotExist(err) {
+			err = os.MkdirAll(DefaultLogsDirectory, 0660)
 
 			if err != nil {
 				return Config{}, err
@@ -177,8 +160,8 @@ func ParseConfig(path string) (Config, error) {
 	}
 
 	if c.DataStoreType == "" {
-		logger.Warn("no data store provided, using datastore storage")
-		c.DataStoreType = "datastore"
+		logger.Warnf("no data store provided, using default storage %v", DefaultStorage)
+		c.DataStoreType = DefaultStorage
 	}
 
 	return c, nil
@@ -197,4 +180,27 @@ func (c Config) Level() int {
 //ReportCaller returns the ReportCaller field of the log config
 func (c Config) ReportCaller() bool {
 	return c.Log.ReportCaller
+}
+
+//validateConfigPath takes a path and slice of default paths and returns the first valid one in this order.
+func validateConfigPath(path string, defaultPaths []string) (string, error) {
+	if path != "" {
+		_, err := os.Stat(path)
+
+		if err != nil {
+			logger.Warn("provided configuration file does not exist, using default path")
+		} else {
+			return path, nil
+		}
+	}
+
+	for _, p := range defaultPaths {
+		_, err := os.Stat(p)
+
+		if err == nil {
+			return p, nil
+		}
+	}
+
+	return "", errors.New("could not open any configuration file")
 }
