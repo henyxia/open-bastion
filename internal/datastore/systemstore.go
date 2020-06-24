@@ -11,6 +11,11 @@ import (
 	"regexp"
 )
 
+const (
+	InvalidUsernameErr = "invalid username"
+	ReadKeyErr         = "cannot read key"
+)
+
 // SystemStore represents the datastore storage
 type SystemStore struct {
 	path      string
@@ -26,7 +31,7 @@ func (s SystemStore) AddUser(username string, privateKeyType string) error {
 	//Should we validate the username when we parse the input and considere it valid from then on
 	// or should we parse it in this function?
 	if !isUsernameValid(username) {
-		return errors.New("invalid username")
+		return errors.New(InvalidUsernameErr)
 	}
 
 	us, err := s.GetUserStatus(username)
@@ -68,7 +73,7 @@ func (s SystemStore) AddUser(username string, privateKeyType string) error {
 //DeleteUser delete a user if it exists and its associated files
 func (s SystemStore) DeleteUser(username string) error {
 	if !isUsernameValid(username) {
-		return errors.New("invalid username")
+		return errors.New(InvalidUsernameErr)
 	}
 
 	err := os.RemoveAll(s.path + "/" + username + "/")
@@ -83,7 +88,7 @@ func (s SystemStore) DeleteUser(username string) error {
 //GetUserStatus takes a username, validate it and returns the status of the user
 func (s SystemStore) GetUserStatus(username string) (int, error) {
 	if !isUsernameValid(username) {
-		return Error, errors.New("invalid username")
+		return Error, errors.New(InvalidUsernameErr)
 	}
 
 	userDir := s.path + "/" + username + "/"
@@ -131,19 +136,19 @@ func (s SystemStore) GetUserStatus(username string) (int, error) {
 //GetRawUserEgressPrivateKey return the user's private key as a string
 func (s SystemStore) GetRawUserEgressPrivateKey(username string) ([]byte, error) {
 	if !isUsernameValid(username) {
-		return nil, errors.New("invalid username")
+		return nil, errors.New(InvalidUsernameErr)
 	}
 	//TODO validate key
 	f, err := os.Open(s.path + "/" + username + "/egress-keys/" + username)
 
 	if err != nil {
-		return nil, errors.New("cannot read key")
+		return nil, errors.New(ReadKeyErr)
 	}
 
 	key, err := ioutil.ReadAll(f)
 
 	if err != nil {
-		return nil, errors.New("cannot read key")
+		return nil, errors.New(ReadKeyErr)
 	}
 
 	return key, nil
@@ -155,19 +160,19 @@ func (s SystemStore) GetRawUserEgressPrivateKey(username string) ([]byte, error)
 func (s SystemStore) GetUserEgressPrivateKeySigner(username string) (ssh.Signer, error) {
 
 	if !isUsernameValid(username) {
-		return nil, errors.New("invalid username")
+		return nil, errors.New(InvalidUsernameErr)
 	}
 	//TODO validate key
 	f, err := os.Open(s.path + "/" + username + "/egress-keys/" + username)
 
 	if err != nil {
-		return nil, errors.New("cannot read key")
+		return nil, errors.New(ReadKeyErr)
 	}
 
 	key, err := ioutil.ReadAll(f)
 
 	if err != nil {
-		return nil, errors.New("cannot read key")
+		return nil, errors.New(ReadKeyErr)
 	}
 
 	privateSigner, err := ssh.ParsePrivateKey(key)
@@ -181,19 +186,19 @@ func (s SystemStore) GetUserEgressPrivateKeySigner(username string) (ssh.Signer,
 //GetRawUserEgressPublicKey return the user's private key as a string
 func (s SystemStore) GetRawUserEgressPublicKey(username string) ([]byte, error) {
 	if !isUsernameValid(username) {
-		return nil, errors.New("invalid username")
+		return nil, errors.New(InvalidUsernameErr)
 	}
 	//TODO validate key
 	f, err := os.Open(s.path + "/" + username + "/egress-keys/" + username + ".pub")
 
 	if err != nil {
-		return nil, errors.New("cannot read key")
+		return nil, errors.New(ReadKeyErr)
 	}
 
 	key, err := ioutil.ReadAll(f)
 
 	if err != nil {
-		return nil, errors.New("cannot read key")
+		return nil, errors.New(ReadKeyErr)
 	}
 
 	return key, nil

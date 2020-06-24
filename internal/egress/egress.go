@@ -11,6 +11,10 @@ import (
 	logger "github.com/open-bastion/open-bastion/internal/logger"
 )
 
+const (
+	InvalidPortErr = "invalid port option"
+)
+
 // BackendConn contains the informations to establish a connection to a backend
 type BackendConn struct {
 	Command string
@@ -73,8 +77,8 @@ func DialSSH(channel ssh.Channel, bc BackendConn, signer ssh.Signer) error {
 
 	// Set up terminal modes
 	modes := ssh.TerminalModes{
-		ssh.TTY_OP_ISPEED: 14400, // input speed = 14.4kbaud
-		ssh.TTY_OP_OSPEED: 14400, // output speed = 14.4kbaud
+		ssh.TTY_OP_ISPEED: 14400, // input speed = 14.4 kbaud
+		ssh.TTY_OP_OSPEED: 14400, // output speed = 14.4 kbaud
 	}
 
 	// Request pseudo terminal
@@ -136,18 +140,18 @@ func ParseBackendInfo(rawPayload []byte) (bc BackendConn, err error) {
 				port, err := strconv.Atoi(command[i+1])
 
 				if err != nil {
-					return bc, errors.New("invalid port option")
+					return bc, errors.New(InvalidPortErr)
 				}
 
 				if port > 65535 || port < 0 {
-					return bc, errors.New("invalid port option")
+					return bc, errors.New(InvalidPortErr)
 				}
 
 				bc.Port = port
 				//Don't go over the next parameter as it already as been read
 				i = i + 1
 			} else {
-				return bc, errors.New("invalid port option")
+				return bc, errors.New(InvalidPortErr)
 			}
 		} else {
 			arr := strings.Split(command[i], `@`)
