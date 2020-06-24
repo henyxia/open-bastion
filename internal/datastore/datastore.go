@@ -33,9 +33,14 @@ const (
 	Error
 )
 
+const (
+	SystemStoreType = "system"
+	SQLStoreType    = "sql"
+)
+
 // InitStore return an initialized DataStore
 func InitStore(config config.Config) (DataStore, error) {
-	if config.DataStoreType == "datastore" {
+	if config.DataStoreType == SystemStoreType {
 		var store SystemStore
 
 		store.storeType = config.DataStoreType

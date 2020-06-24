@@ -1,4 +1,4 @@
-package logs
+package logger
 
 import (
 	"os"
@@ -8,14 +8,14 @@ import (
 
 var logger zerolog.Logger
 
-//LogConfigGetter represents the logger configuration
+//LogConfigGetter represents the logger configuration.
 type LogConfigGetter interface {
 	IsJSON() bool
 	Level() int
 	ReportCaller() bool
 }
 
-//InitLogger initialize the logger with the passed config
+//InitLogger initialize the logger with the passed config.
 func InitLogger(config LogConfigGetter) {
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
 

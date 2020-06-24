@@ -3,12 +3,15 @@
 	"PermitKeyLogin": true,
 	"PermitRootLogin": false,
 	"AuthorizedKeysFile": "",
-	"UserKeysDir": "",
 	"PrivateKeyFile": "",
-	"EventsLogFile": "",
-	"SystemLogFile": "",
-	"AsyncEventsLog": true,
-	"AsyncSystemLog": true,
+	"UserKeysDir": "/var/lib/open-bastion/users/",
 	"ListenPort": 22,
-	"ListenAddress": "0.0.0.0"
+	"ListenAddress": "0.0.0.0",
+	"Log": {
+		"Path": "/var/log/open-bastion/",
+		"IsJSON": false,
+		"Level": -1,
+		"ReportCaller": true
+	},
+	"DataStoreType": "system"
 }

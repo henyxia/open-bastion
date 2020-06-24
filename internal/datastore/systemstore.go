@@ -204,6 +204,7 @@ func (s SystemStore) GetRawUserEgressPublicKey(username string) ([]byte, error) 
 	return key, nil
 }
 
+//isUsernameValid validate a username with the regex [a-z_][a-z0-9_-]*[$]?
 func isUsernameValid(username string) bool {
 	//The man recommends the following rules for a username
 	//This is the regex used on debian datastore to validate a username

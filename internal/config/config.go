@@ -27,7 +27,7 @@ type Config struct {
 	ListenPort          int    `json:"ListenPort"`
 	ListenAddress       string `json:"ListenAddress"`
 	Log                 Log    `json:"Log"`
-	DataStoreType       string `json:"datastore"`
+	DataStoreType       string `json:"DataStoreType"`
 }
 
 //Log contains the logger configuration
@@ -114,7 +114,14 @@ func ParseConfig(path string) (Config, error) {
 	}
 
 	if c.PrivateKeyFile == "" {
+		logger.Warnf("no private key file provided, using default file %v", defaultPrivateKey)
 		c.PrivateKeyFile = defaultPrivateKey
+
+		_, err := os.Stat(c.PrivateKeyFile)
+
+		if err != nil {
+			return Config{}, errors.New("invalid private key file path")
+		}
 	} else {
 		_, err := os.Stat(c.PrivateKeyFile)
 
@@ -124,7 +131,14 @@ func ParseConfig(path string) (Config, error) {
 	}
 
 	if c.AuthorizedKeysFile == "" {
+		logger.Warnf("no authorized_keys file provided, using default file %v", defaultAuthorizedKeys)
 		c.AuthorizedKeysFile = defaultAuthorizedKeys
+
+		_, err := os.Stat(c.AuthorizedKeysFile)
+
+		if err != nil {
+			return Config{}, errors.New("invalid authorized_keys file path")
+		}
 	} else {
 		_, err := os.Stat(c.AuthorizedKeysFile)
 

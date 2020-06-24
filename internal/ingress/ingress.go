@@ -1,8 +1,12 @@
 package ingress
 
 import (
+	"context"
 	"errors"
 	"github.com/open-bastion/open-bastion/internal/datastore"
+	"github.com/open-bastion/open-bastion/internal/egress"
+	"github.com/open-bastion/open-bastion/internal/logger"
+	"github.com/open-bastion/open-bastion/internal/obclient"
 	"golang.org/x/crypto/ssh"
 	"io/ioutil"
 	"net"
@@ -75,4 +79,65 @@ func (in *Ingress) ConfigTCPListener(address string) error {
 	}
 
 	return nil
+}
+
+//ListenAndServe listens forever for incoming SSH connections and tries to handle them
+func (in *Ingress) ListenAndServe(ctx context.Context, dataStore datastore.DataStore) {
+	logger.Info("listening for new connections...")
+	for {
+		logger.Debug("waiting for a new connection...")
+		client := new(obclient.Client)
+		var err error
+
+		client.TCPConnexion, err = in.TCPListener.Accept()
+
+		if err != nil {
+			logger.WarnWithErr(err, "failed to handle the TCP connection")
+			continue
+		}
+
+		go in.handleClient(ctx, client, dataStore)
+	}
+}
+
+//handleClient takes a context, a client with a valid initialized connection and a DataStore, try to establish
+//an SSH connection then execute the client's command (either a bastion operation or a backend connection).
+func (in *Ingress) handleClient(ctx context.Context, c *obclient.Client, dataStore datastore.DataStore) {
+	err := c.HandshakeSSH(in.SSHServerConfig)
+
+	logger.UpdateClientLogCtx(ctx, c)
+
+	if err != nil {
+		logger.WarnWithCtxWithErr(ctx, err, "failed to handshake")
+		return
+	}
+
+	err = c.HandleSSHConnection()
+
+	logger.UpdateClientLogCtx(ctx, c)
+
+	defer func() {
+		if err := c.SshCommChan.Close(); err != nil {
+			logger.WarnWithCtxWithErr(ctx, err, "error closing the client communication channel")
+		}
+
+		if err := c.SSHConnexion.Close(); err != nil {
+			logger.WarnWithCtxWithErr(ctx, err, "error closing the SSH connection")
+		}
+	}()
+
+	if err != nil {
+		logger.WarnWithCtxWithErr(ctx, err, "failed to handle the TCP connection")
+		return
+	}
+
+	logger.InfoWithCtx(ctx, "client connected")
+
+	if c.BackendCommand == "bastion" {
+		_ = c.RunCommand()
+	} else if c.BackendCommand == "ssh" {
+		egress.EstablishSSHConnection(ctx, c, dataStore)
+	} else if c.BackendCommand == "telnet" {
+		logger.WarnWithCtxWithErr(ctx, err, "method not implemented")
+	}
 }

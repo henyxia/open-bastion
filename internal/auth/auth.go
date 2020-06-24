@@ -2,7 +2,7 @@ package auth
 
 import (
 	"bufio"
-	logger "github.com/open-bastion/open-bastion/internal/logger"
+	"github.com/open-bastion/open-bastion/internal/logger"
 	"golang.org/x/crypto/ssh"
 	"os"
 )
