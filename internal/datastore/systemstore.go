@@ -14,6 +14,8 @@ import (
 const (
 	InvalidUsernameErr = "invalid username"
 	ReadKeyErr         = "cannot read key"
+
+	egressDirectory    = "/egress-keys/"
 )
 
 // SystemStore represents the datastore storage
@@ -44,7 +46,7 @@ func (s SystemStore) AddUser(username string, privateKeyType string) error {
 		return errors.New("user " + username + " already exists")
 	}
 
-	userKeyPath := s.path + username + "/egress-keys/" + username
+	userKeyPath := s.path + username + egressDirectory + username
 
 	//TODO should we output the public key on stdout when creating the user?
 	if privateKeyType == "ecdsa" {
@@ -139,7 +141,7 @@ func (s SystemStore) GetRawUserEgressPrivateKey(username string) ([]byte, error)
 		return nil, errors.New(InvalidUsernameErr)
 	}
 	//TODO validate key
-	f, err := os.Open(s.path + "/" + username + "/egress-keys/" + username)
+	f, err := os.Open(s.path + "/" + username + egressDirectory + username)
 
 	if err != nil {
 		return nil, errors.New(ReadKeyErr)
@@ -163,7 +165,7 @@ func (s SystemStore) GetUserEgressPrivateKeySigner(username string) (ssh.Signer,
 		return nil, errors.New(InvalidUsernameErr)
 	}
 	//TODO validate key
-	f, err := os.Open(s.path + "/" + username + "/egress-keys/" + username)
+	f, err := os.Open(s.path + "/" + username + egressDirectory + username)
 
 	if err != nil {
 		return nil, errors.New(ReadKeyErr)
@@ -189,7 +191,7 @@ func (s SystemStore) GetRawUserEgressPublicKey(username string) ([]byte, error) 
 		return nil, errors.New(InvalidUsernameErr)
 	}
 	//TODO validate key
-	f, err := os.Open(s.path + "/" + username + "/egress-keys/" + username + ".pub")
+	f, err := os.Open(s.path + "/" + username + egressDirectory + username + ".pub")
 
 	if err != nil {
 		return nil, errors.New(ReadKeyErr)
