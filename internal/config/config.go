@@ -3,7 +3,7 @@ package config
 import (
 	"encoding/json"
 	"errors"
-	logger "github.com/open-bastion/open-bastion/internal/logger"
+	"github.com/open-bastion/open-bastion/internal/logger"
 	"io/ioutil"
 	"net"
 	"os"

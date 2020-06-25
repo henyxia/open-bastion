@@ -52,7 +52,6 @@ type BackendConn struct {
 
 //HandshakeSSH takes an initialized SSH configuration and tries to establish a SSH connection for the client.
 func (client *Client) HandshakeSSH(sshConfig *ssh.ServerConfig) error {
-	// func handshakeSSH(c *net.Conn, sshConfig *ssh.ServerConfig) (*ssh.ServerConn, <-chan ssh.NewChannel, error) {
 	// Before use, a handshake must be performed on the incoming
 	// net.Conn.
 	var reqs <-chan *ssh.Request
