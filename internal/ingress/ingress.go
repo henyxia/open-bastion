@@ -3,6 +3,7 @@ package ingress
 import (
 	"context"
 	"errors"
+	"github.com/open-bastion/open-bastion/internal/config"
 	"github.com/open-bastion/open-bastion/internal/datastore"
 	"github.com/open-bastion/open-bastion/internal/egress"
 	"github.com/open-bastion/open-bastion/internal/logger"
@@ -82,11 +83,13 @@ func (in *Ingress) ConfigTCPListener(address string) error {
 }
 
 //ListenAndServe listens forever for incoming SSH connections and tries to handle them
-func (in *Ingress) ListenAndServe(ctx context.Context, dataStore datastore.DataStore) {
+func (in *Ingress) ListenAndServe(ctx context.Context, dataStore datastore.DataStore, config config.Config) {
 	logger.Info("listening for new connections...")
 	for {
 		logger.Debug("waiting for a new connection...")
 		client := new(obclient.Client)
+		client.BackendTimeout = config.BackendTimeout
+
 		var err error
 
 		client.TCPConnexion, err = in.TCPListener.Accept()

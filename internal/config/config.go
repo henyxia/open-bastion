@@ -28,6 +28,7 @@ type Config struct {
 	ListenAddress       string `json:"ListenAddress"`
 	Log                 Log    `json:"Log"`
 	DataStoreType       string `json:"DataStoreType"`
+	BackendTimeout      int    `json:"BackendTimeout"`
 }
 
 //Log contains the logger configuration
@@ -79,13 +80,9 @@ func ParseConfig(path string) (Config, error) {
 		return Config{}, err
 	}
 
-	err = f.Close()
-
-	//TODO should we still proceed if we cannot close the config file?
-	logger.WarnWithErr(err, "could not close config file")
-
-	if err != nil {
-		return Config{}, err
+	if err := f.Close(); err != nil {
+		//TODO should we still proceed if we cannot close the config file?
+		logger.WarnWithErr(err, "could not close config file")
 	}
 
 	if !json.Valid(byteContent) {
@@ -176,6 +173,11 @@ func ParseConfig(path string) (Config, error) {
 	if c.DataStoreType == "" {
 		logger.Warnf("no data store provided, using default storage %v", DefaultStorage)
 		c.DataStoreType = DefaultStorage
+	}
+
+	if c.BackendTimeout < 0 {
+		logger.Warnf("backend timeout provided is negative, setting it to 0 instead (no timeout)")
+		c.BackendTimeout = 0
 	}
 
 	return c, nil

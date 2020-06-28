@@ -15,6 +15,16 @@ type LogConfigGetter interface {
 	ReportCaller() bool
 }
 
+//InitDefaultLogger initialize a default logger to display any error before the configurable logger initialization.
+func InitDefaultLogger() {
+	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
+
+	//TODO should the default logger format be JSON?
+	logger = zerolog.New(zerolog.ConsoleWriter{Out: os.Stderr}).With().Timestamp().Logger()
+
+	zerolog.SetGlobalLevel(zerolog.Level(1))
+}
+
 //InitLogger initialize the logger with the passed config.
 func InitLogger(config LogConfigGetter) {
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix

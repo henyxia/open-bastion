@@ -30,9 +30,15 @@ func EstablishSSHConnection(ctx context.Context, client *obclient.Client, dataSt
 		logger.ErrorWithCtxWithErr(ctx, err, "authenticated user could not access his egress private key")
 	}
 
-	//TODO add proper cancel func to clean up and display an error
-	ctx, cancel := context.WithTimeout(ctx, time.Millisecond*1000)
-	defer cancel()
+	if client.BackendTimeout > 0 {
+		timeout := time.Duration(client.BackendTimeout) * time.Millisecond
+
+		//TODO add proper cancel func to clean up and display an error
+		timeoutCtx, cancel := context.WithTimeout(ctx, timeout)
+		defer cancel()
+
+		ctx = timeoutCtx
+	}
 
 	err = DialBackend(ctx, client)
 

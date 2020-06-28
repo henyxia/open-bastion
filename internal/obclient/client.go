@@ -40,6 +40,7 @@ type Client struct {
 	BackendUser    string
 	BackendHost    string
 	BackendPort    int
+	BackendTimeout int
 }
 
 // BackendConn contains the information to establish a connection to a backend.

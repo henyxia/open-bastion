@@ -20,6 +20,8 @@ func main() {
 	var sshServer ingress.Ingress
 	var authInfo auth.Auth
 
+	logger.InitDefaultLogger()
+
 	bastionConfig, err := config.ParseConfig(*configPath)
 
 	if err != nil {
@@ -57,5 +59,5 @@ func main() {
 	}
 	logger.Info("server configured")
 
-	sshServer.ListenAndServe(ctx, dataStore)
+	sshServer.ListenAndServe(ctx, dataStore, bastionConfig)
 }

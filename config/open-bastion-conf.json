@@ -10,8 +10,9 @@
 	"Log": {
 		"Path": "/var/log/open-bastion/",
 		"IsJSON": false,
-		"Level": -1,
+		"Level": 1,
 		"ReportCaller": true
 	},
-	"DataStoreType": "system"
+	"DataStoreType": "system",
+	"BackendTimeout": 0
 }
